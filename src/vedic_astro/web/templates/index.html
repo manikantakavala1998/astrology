@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vedic-astro</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>Vedic Kundali</h1>
+  <p class="subtitle">Local, offline South Indian birth chart generator</p>
+
+  <div class="page">
+
+    {% if error %}
+    <div class="panel error">{{ error }}</div>
+    {% endif %}
+
+    <div class="panel">
+      <h2 class="section-title">Birth details</h2>
+      <form method="post" action="/">
+        <div class="form-grid">
+          <div class="field">
+            <label for="name">Name (optional)</label>
+            <input type="text" id="name" name="name" placeholder="e.g. Priya" value="{{ form_values.name }}">
+          </div>
+          <div class="field">
+            <label for="birth_date">Date of birth</label>
+            <input type="date" id="birth_date" name="birth_date" value="{{ form_values.birth_date }}" required>
+          </div>
+          <div class="field time-field">
+            <label for="birth_hour">Time of birth</label>
+            <div class="time-inputs">
+              <select id="birth_hour" name="birth_hour" aria-label="Hour" required>
+                <option value="" {% if not form_values.birth_hour %}selected{% endif %}>HH</option>
+                {% for h in range(1, 13) %}
+                <option value="{{ h }}" {% if form_values.birth_hour==h|string %}selected{% endif %}>{{ h }}</option>
+                {% endfor %}
+              </select>
+              <span>:</span>
+              <select id="birth_minute" name="birth_minute" aria-label="Minute" required>
+                <option value="" {% if not form_values.birth_minute %}selected{% endif %}>MM</option>
+                {% for m in range(0, 60) %}
+                <option value="{{ m }}" {% if form_values.birth_minute==m|string %}selected{% endif %}>{{ "%02d"|format(m) }}</option>
+                {% endfor %}
+              </select>
+              <select id="birth_meridiem" name="birth_meridiem" aria-label="AM or PM" required>
+                <option value="AM" {% if form_values.birth_meridiem=='AM' %}selected{% endif %}>AM</option>
+                <option value="PM" {% if form_values.birth_meridiem=='PM' %}selected{% endif %}>PM</option>
+              </select>
+            </div>
+          </div>
+          <div class="field place-field">
+            <label for="place_name">Place of birth</label>
+            <input type="text" id="place_name" name="place_name"
+                   placeholder="e.g. Chennai, Tamil Nadu" value="{{ form_values.place_name }}" required>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary>Advanced settings</summary>
+          <div class="form-grid">
+            <div class="field">
+              <label for="ayanamsha">Ayanamsha</label>
+              <select id="ayanamsha" name="ayanamsha">
+                {% for choice in ayanamsha_choices %}
+                <option value="{{ choice }}" {% if form_values.ayanamsha==choice %}selected{% endif %}>
+                  {{ choice | capitalize }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="node_type">Rahu/Ketu node</label>
+              <select id="node_type" name="node_type">
+                <option value="mean" {% if form_values.node_type=='mean' %}selected{% endif %}>Mean node</option>
+                <option value="true" {% if form_values.node_type=='true' %}selected{% endif %}>True node</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="house_system">House system</label>
+              <select id="house_system" name="house_system">
+                {% for choice in house_system_choices %}
+                <option value="{{ choice }}" {% if form_values.house_system==choice %}selected{% endif %}>
+                  {{ choice | replace("_", " ") | capitalize }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="manual_latitude">Latitude (overrides place above)</label>
+              <input type="number" id="manual_latitude" name="manual_latitude" step="any" min="-90" max="90"
+                     placeholder="e.g. 13.0827" value="{{ form_values.manual_latitude }}">
+            </div>
+            <div class="field">
+              <label for="manual_longitude">Longitude (overrides place above)</label>
+              <input type="number" id="manual_longitude" name="manual_longitude" step="any" min="-180" max="180"
+                     placeholder="e.g. 80.2707" value="{{ form_values.manual_longitude }}">
+            </div>
+            <div class="field">
+              <label for="manual_utc_offset_hours">UTC offset (hours, optional)</label>
+              <input type="number" id="manual_utc_offset_hours" name="manual_utc_offset_hours" step="0.25" min="-12" max="14"
+                     placeholder="auto-detected if left blank" value="{{ form_values.manual_utc_offset_hours }}">
+            </div>
+          </div>
+          <p class="hint">Leave these alone unless you know you need them - sensible defaults (Lahiri ayanamsha, mean node,
+             whole sign houses) are used automatically. Note: the South Indian chart grid is always whole-sign by design -
+             choosing Equal/Placidus/Porphyry only changes the "House" column in the Planets/Aspects tables, not the grid itself.</p>
+        </details>
+
+        <div class="compat-row">
+          <input type="checkbox" id="include_match" name="include_match" class="compat-checkbox"
+                 {% if form_values.include_match=='on' %}checked{% endif %}>
+          <label for="include_match">Check marriage compatibility with a second person</label>
+        </div>
+
+        <div class="person-b-section">
+          <h3>Second person's birth details</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label for="b_name">Name (optional)</label>
+              <input type="text" id="b_name" name="b_name" placeholder="e.g. Arjun" value="{{ form_values.b_name }}">
+            </div>
+            <div class="field">
+              <label for="b_birth_date">Date of birth</label>
+              <input type="date" id="b_birth_date" name="b_birth_date" value="{{ form_values.b_birth_date }}">
+            </div>
+            <div class="field time-field">
+              <label for="b_birth_hour">Time of birth</label>
+              <div class="time-inputs">
+                <select id="b_birth_hour" name="b_birth_hour" aria-label="Hour">
+                  <option value="" {% if not form_values.b_birth_hour %}selected{% endif %}>HH</option>
+                  {% for h in range(1, 13) %}
+                  <option value="{{ h }}" {% if form_values.b_birth_hour==h|string %}selected{% endif %}>{{ h }}</option>
+                  {% endfor %}
+                </select>
+                <span>:</span>
+                <select id="b_birth_minute" name="b_birth_minute" aria-label="Minute">
+                  <option value="" {% if not form_values.b_birth_minute %}selected{% endif %}>MM</option>
+                  {% for m in range(0, 60) %}
+                  <option value="{{ m }}" {% if form_values.b_birth_minute==m|string %}selected{% endif %}>{{ "%02d"|format(m) }}</option>
+                  {% endfor %}
+                </select>
+                <select id="b_birth_meridiem" name="b_birth_meridiem" aria-label="AM or PM">
+                  <option value="AM" {% if form_values.b_birth_meridiem=='AM' %}selected{% endif %}>AM</option>
+                  <option value="PM" {% if form_values.b_birth_meridiem=='PM' %}selected{% endif %}>PM</option>
+                </select>
+              </div>
+            </div>
+            <div class="field place-field">
+              <label for="b_place_name">Place of birth</label>
+              <input type="text" id="b_place_name" name="b_place_name"
+                     placeholder="e.g. Bengaluru, Karnataka" value="{{ form_values.b_place_name }}">
+            </div>
+          </div>
+          <details class="advanced">
+            <summary>Advanced: exact coordinates for second person</summary>
+            <div class="form-grid">
+              <div class="field">
+                <label for="b_manual_latitude">Latitude (overrides place above)</label>
+                <input type="number" id="b_manual_latitude" name="b_manual_latitude" step="any" min="-90" max="90"
+                       placeholder="e.g. 12.9716" value="{{ form_values.b_manual_latitude }}">
+              </div>
+              <div class="field">
+                <label for="b_manual_longitude">Longitude (overrides place above)</label>
+                <input type="number" id="b_manual_longitude" name="b_manual_longitude" step="any" min="-180" max="180"
+                       placeholder="e.g. 77.5946" value="{{ form_values.b_manual_longitude }}">
+              </div>
+              <div class="field">
+                <label for="b_manual_utc_offset_hours">UTC offset (hours, optional)</label>
+                <input type="number" id="b_manual_utc_offset_hours" name="b_manual_utc_offset_hours" step="0.25" min="-12" max="14"
+                       placeholder="auto-detected if left blank" value="{{ form_values.b_manual_utc_offset_hours }}">
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit">Generate chart</button>
+        </div>
+      </form>
+    </div>
+
+    {# Preserves the OTHER person's full current state (including any place
+       they'd already resolved via a prior disambiguation pick) when a
+       candidate button for THIS person is clicked - otherwise picking a
+       candidate for one person could silently discard the other's already-
+       resolved selection and force them through disambiguation again. #}
+    {% macro other_person_fields(prefix, selected_latitude, selected_longitude, selected_timezone, selected_label) %}
+      <input type="hidden" name="{{ prefix }}name" value="{{ form_values[prefix + 'name'] }}">
+      <input type="hidden" name="{{ prefix }}birth_date" value="{{ form_values[prefix + 'birth_date'] }}">
+      <input type="hidden" name="{{ prefix }}birth_hour" value="{{ form_values[prefix + 'birth_hour'] }}">
+      <input type="hidden" name="{{ prefix }}birth_minute" value="{{ form_values[prefix + 'birth_minute'] }}">
+      <input type="hidden" name="{{ prefix }}birth_meridiem" value="{{ form_values[prefix + 'birth_meridiem'] }}">
+      <input type="hidden" name="{{ prefix }}place_name" value="{{ form_values[prefix + 'place_name'] }}">
+      <input type="hidden" name="{{ prefix }}manual_latitude" value="{{ form_values[prefix + 'manual_latitude'] }}">
+      <input type="hidden" name="{{ prefix }}manual_longitude" value="{{ form_values[prefix + 'manual_longitude'] }}">
+      <input type="hidden" name="{{ prefix }}manual_utc_offset_hours" value="{{ form_values[prefix + 'manual_utc_offset_hours'] }}">
+      <input type="hidden" name="{{ prefix }}selected_latitude" value="{{ selected_latitude }}">
+      <input type="hidden" name="{{ prefix }}selected_longitude" value="{{ selected_longitude }}">
+      <input type="hidden" name="{{ prefix }}selected_timezone" value="{{ selected_timezone }}">
+      <input type="hidden" name="{{ prefix }}selected_label" value="{{ selected_label }}">
+    {% endmacro %}
+
+    {% if candidates %}
+    <div class="panel">
+      <h2 class="section-title">Which place did you mean?</h2>
+      <p class="hint">Multiple places matched "{{ form_values.place_name }}" for the first person - pick the right one.</p>
+      <div class="candidate-list">
+        {% for c in candidates %}
+        <form method="post" action="/" class="candidate-form">
+          <input type="hidden" name="name" value="{{ form_values.name }}">
+          <input type="hidden" name="birth_date" value="{{ form_values.birth_date }}">
+          <input type="hidden" name="birth_hour" value="{{ form_values.birth_hour }}">
+          <input type="hidden" name="birth_minute" value="{{ form_values.birth_minute }}">
+          <input type="hidden" name="birth_meridiem" value="{{ form_values.birth_meridiem }}">
+          <input type="hidden" name="ayanamsha" value="{{ form_values.ayanamsha }}">
+          <input type="hidden" name="node_type" value="{{ form_values.node_type }}">
+          <input type="hidden" name="house_system" value="{{ form_values.house_system }}">
+          <input type="hidden" name="include_match" value="{{ form_values.include_match }}">
+          <input type="hidden" name="selected_latitude" value="{{ c.latitude }}">
+          <input type="hidden" name="selected_longitude" value="{{ c.longitude }}">
+          <input type="hidden" name="selected_timezone" value="{{ c.timezone }}">
+          <input type="hidden" name="selected_label" value="{{ c.name }}, {{ c.state }}, {{ c.country }}">
+          {{ other_person_fields("b_", form_values.b_selected_latitude, form_values.b_selected_longitude, form_values.b_selected_timezone, form_values.b_selected_label) }}
+          <button type="submit" class="candidate-button">
+            {{ c.name }}, {{ c.state }}, {{ c.country }} <span class="hint">({{ c.timezone }})</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if candidates_b %}
+    <div class="panel">
+      <h2 class="section-title">Which place did you mean for the second person?</h2>
+      <p class="hint">Multiple places matched "{{ form_values.b_place_name }}" - pick the right one.</p>
+      <div class="candidate-list">
+        {% for c in candidates_b %}
+        <form method="post" action="/" class="candidate-form">
+          <input type="hidden" name="b_name" value="{{ form_values.b_name }}">
+          <input type="hidden" name="b_birth_date" value="{{ form_values.b_birth_date }}">
+          <input type="hidden" name="b_birth_hour" value="{{ form_values.b_birth_hour }}">
+          <input type="hidden" name="b_birth_minute" value="{{ form_values.b_birth_minute }}">
+          <input type="hidden" name="b_birth_meridiem" value="{{ form_values.b_birth_meridiem }}">
+          <input type="hidden" name="ayanamsha" value="{{ form_values.ayanamsha }}">
+          <input type="hidden" name="node_type" value="{{ form_values.node_type }}">
+          <input type="hidden" name="house_system" value="{{ form_values.house_system }}">
+          <input type="hidden" name="include_match" value="{{ form_values.include_match }}">
+          <input type="hidden" name="b_selected_latitude" value="{{ c.latitude }}">
+          <input type="hidden" name="b_selected_longitude" value="{{ c.longitude }}">
+          <input type="hidden" name="b_selected_timezone" value="{{ c.timezone }}">
+          <input type="hidden" name="b_selected_label" value="{{ c.name }}, {{ c.state }}, {{ c.country }}">
+          {{ other_person_fields("", form_values.selected_latitude, form_values.selected_longitude, form_values.selected_timezone, form_values.selected_label) }}
+          <button type="submit" class="candidate-button">
+            {{ c.name }}, {{ c.state }}, {{ c.country }} <span class="hint">({{ c.timezone }})</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if chart %}
+    <div class="tabs-wrapper">
+      <input type="radio" name="main-tabs" id="tab-chart" class="tab-radio" checked>
+      <input type="radio" name="main-tabs" id="tab-dasha" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-aspects" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-jaimini" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-panchanga" class="tab-radio">
+      {% if match_report %}<input type="radio" name="main-tabs" id="tab-compat" class="tab-radio">{% endif %}
+      <input type="radio" name="main-tabs" id="tab-tools" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-ask" class="tab-radio">
+
+      <div class="tab-bar">
+        <label for="tab-chart">Chart</label>
+        <label for="tab-dasha">Dasha</label>
+        <label for="tab-aspects">Aspects</label>
+        <label for="tab-jaimini">Jaimini</label>
+        <label for="tab-panchanga">Panchanga</label>
+        {% if match_report %}<label for="tab-compat">Compatibility</label>{% endif %}
+        <label for="tab-tools">Tools</label>
+        <label for="tab-ask">Ask AI</label>
+      </div>
+
+      <div class="tab-panel" id="panel-chart">
+        <div class="chart-tab-grid">
+          <div class="chart-tab-left">
+            <div class="panel">
+              <h2 class="section-title">Rasi Chakra (D1){% if chart.birth_data.name %} - {{ chart.birth_data.name }}{% endif %}</h2>
+              {% if resolved_place %}
+              <p class="hint">Resolved place: {{ resolved_place }} (lat {{ "%.4f"|format(chart.birth_data.latitude) }},
+                 lon {{ "%.4f"|format(chart.birth_data.longitude) }}, UTC{{ "%+.2f"|format(chart.birth_data.utc_offset_hours) }})</p>
+              {% endif %}
+              {% set moon = chart.planets | selectattr("planet.value", "equalto", "Moon") | first %}
+              <p>Ascendant (Lagna): <strong>{{ chart.ascendant.sign.value }}</strong>
+                 ({{ "%.2f"|format(chart.ascendant.degree_in_sign) }}&deg;)
+                 &nbsp;|&nbsp;
+                 Rasi (Moon sign): <strong>{{ moon.sign.value }}</strong>
+                 ({{ "%.2f"|format(moon.degree_in_sign) }}&deg;)
+                 &nbsp;|&nbsp;
+                 Nakshatra: <strong>{{ moon.nakshatra.name }}</strong> (pada {{ moon.nakshatra.pada }})</p>
+              <div class="chart-grid">
+                {% for row in grid %}
+                  {% for cell in row %}
+                    {% if cell is none %}
+                    <div class="chart-cell blank"></div>
+                    {% else %}
+                    <div class="chart-cell {% if cell.is_ascendant %}ascendant{% endif %}">
+                      <span class="cell-sign">{{ cell.sign.value }} (H{{ cell.house }})</span>
+                      <span class="cell-planets">{{ cell.planet_labels | join(", ") }}</span>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="panel">
+              <h2 class="section-title">Vimshottari Dasha</h2>
+              {% if current_mahadasha %}
+              <p>Current dasha: <strong>{{ current_mahadasha.planet.value }}</strong>
+                {% if current_antardasha %}/ <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
+              </p>
+              {% endif %}
+              <p class="hint">Full Mahadasha/Antardasha table and Pratyantardasha/Sookshma/Prana drill-down are in the Dasha tab.</p>
+            </div>
+
+            <div class="panel">
+              <h2 class="section-title">Navamsa Chakra (D9)</h2>
+              <p class="hint">The most important divisional chart for judging marriage and the true strength of planets.</p>
+              <div class="chart-grid">
+                {% for row in navamsa_grid %}
+                  {% for cell in row %}
+                    {% if cell is none %}
+                    <div class="chart-cell blank"></div>
+                    {% else %}
+                    <div class="chart-cell {% if cell.is_ascendant %}ascendant{% endif %}">
+                      <span class="cell-sign">{{ cell.sign.value }} (H{{ cell.house }})</span>
+                      <span class="cell-planets">{{ cell.planet_labels | join(", ") }}</span>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-tab-right">
+            <div class="panel">
+              <h2 class="section-title">Planetary Positions</h2>
+              {% if current_mahadasha %}
+              <p class="hint">Current dasha: <strong>{{ current_mahadasha.planet.value }}</strong>
+                {% if current_antardasha %}/ <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
+              </p>
+              {% endif %}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Planet</th><th>Sign</th><th>Degree</th><th>House</th>
+                    <th>Nakshatra</th><th>Pada</th><th>Navamsa (D9)</th><th>Hora (D2)</th><th>Retrograde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in chart.planets %}
+                  <tr>
+                    <td>{{ p.planet.value }}</td>
+                    <td>{{ p.sign.value }}</td>
+                    <td>{{ "%.2f"|format(p.degree_in_sign) }}&deg;</td>
+                    <td>{{ p.house }}</td>
+                    <td>{{ p.nakshatra.name }}</td>
+                    <td>{{ p.nakshatra.pada }}</td>
+                    <td>{{ p.navamsa_sign.value if p.navamsa_sign else "-" }}</td>
+                    <td>{{ p.hora_sign.value if p.hora_sign else "-" }} ({{ p.hora_lord.value if p.hora_lord else "-" }})</td>
+                    <td>{{ "Yes" if p.retrograde else "No" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-dasha">
+        <div class="panel">
+          <h2 class="section-title">Vimshottari Dasha</h2>
+          {% if current_mahadasha %}
+          <p>Current mahadasha: <strong>{{ current_mahadasha.planet.value }}</strong>
+            {% if current_antardasha %}&mdash; antardasha: <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
+          </p>
+          {% endif %}
+          <p class="hint">Click "Sub-periods" on any Antardasha row to compute its Pratyantardasha, Sookshma,
+             and Prana breakdown (729 periods max for that one branch - not pre-computed for the whole chart).</p>
+          <table>
+            <thead><tr><th>Mahadasha</th><th>Antardasha</th><th>Start</th><th>End</th><th></th></tr></thead>
+            <tbody>
+              {% for period in chart.dasha.periods %}
+                {% for sub in period.sub_periods %}
+                <tr class="{% if current_antardasha and sub.start==current_antardasha.start %}current-period{% endif %}">
+                  {% if loop.first %}
+                  <td rowspan="{{ period.sub_periods|length }}"><strong>{{ period.planet.value }}</strong></td>
+                  {% endif %}
+                  <td>{{ sub.planet.value }}</td>
+                  <td>{{ sub.start.strftime("%Y-%m-%d") }}</td>
+                  <td>{{ sub.end.strftime("%Y-%m-%d") }}</td>
+                  <td>
+                    <form method="post" action="/dasha-detail" class="sub-periods-form">
+                      <input type="hidden" name="lord" value="{{ sub.planet.value }}">
+                      <input type="hidden" name="start" value="{{ sub.start.isoformat() }}">
+                      <input type="hidden" name="years" value="{{ ((sub.end - sub.start).total_seconds() / (365.2425 * 86400)) }}">
+                      <button type="submit" class="sub-periods-button">Sub-periods</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-aspects">
+        <div class="panel">
+          <h2 class="section-title">Planetary Aspects (Graha Drishti)</h2>
+          <p class="hint">
+            Every planet aspects its 7th house. Mars also aspects 4th &amp; 8th, Jupiter also 5th &amp; 9th
+            (both special), Saturn also 3rd &amp; 10th (both special) - Sun, Moon, Mercury, and Venus have
+            only the 7th aspect. Rahu/Ketu are not shown as a source (disputed across classical sources).
+          </p>
+          <table>
+            <thead><tr><th>From</th><th>House</th><th>Aspects</th><th>Special?</th></tr></thead>
+            <tbody>
+              {% for a in chart.aspects %}
+              <tr class="{% if a.is_special %}current-period{% endif %}">
+                <td>{{ a.source_planet.value }}</td>
+                <td>House {{ a.source_house }}</td>
+                <td>{{ a.target_planet.value }} (House {{ a.target_house }})</td>
+                <td>{{ "Yes" if a.is_special else "No" }}</td>
+              </tr>
+              {% endfor %}
+              {% if not chart.aspects %}
+              <tr><td colspan="4">No planet-to-planet aspects in this chart.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">Rashi Drishti (Sign-to-Sign Aspects)</h2>
+          <p class="hint">
+            A separate classical system from Graha Drishti above: signs aspect other signs regardless of
+            which planets occupy them. Movable signs aspect all fixed signs except the one immediately
+            adjacent (and vice versa); dual signs aspect the other three dual signs. Only signs actually
+            occupied in this chart are shown.
+          </p>
+          <table>
+            <thead><tr><th>Sign (planets)</th><th>Aspects (occupied signs)</th></tr></thead>
+            <tbody>
+              {% for row in rashi_drishti %}
+              <tr>
+                <td>{{ row.sign.value }} ({{ row.planets | join(", ") }})</td>
+                <td>
+                  {% if row.aspects %}
+                    {% for a in row.aspects %}{{ a.sign.value }} ({{ a.planets | join(", ") }}){% if not loop.last %}, {% endif %}{% endfor %}
+                  {% else %}&mdash;{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-jaimini">
+        <div class="panel">
+          <h2 class="section-title">Chara Karakas</h2>
+          <p class="hint">
+            Jaimini astrology - a different branch from the Vimshottari/Parashari system used elsewhere in this
+            app. The 7 classical grahas ranked by degree within their sign, highest first.
+          </p>
+          <table>
+            <thead><tr><th>Karaka</th><th>Planet</th><th>Degree in sign</th></tr></thead>
+            <tbody>
+              {% for k in chart.chara_karakas %}
+              <tr>
+                <td>{{ k.karaka }}</td>
+                <td>{{ k.planet.value }}</td>
+                <td>{{ "%.2f"|format(k.degree_in_sign) }}&deg;</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">Chara Dasha</h2>
+          <table>
+            <thead><tr><th>Sign</th><th>Lord</th><th>Years</th><th>Start</th><th>End</th></tr></thead>
+            <tbody>
+              {% for p in chart.chara_dasha %}
+              <tr>
+                <td>{{ p.sign.value }}</td>
+                <td>{{ p.lord.value }}</td>
+                <td>{{ p.years }}</td>
+                <td>{{ p.start.strftime("%Y-%m-%d") }}</td>
+                <td>{{ p.end.strftime("%Y-%m-%d") }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="hint">
+            Sign-based dasha (mahadasha level only, no sub-periods yet), starting from the Ascendant sign -
+            the common simplification most practical Jaimini software uses. Cross-check against a trusted
+            Jaimini source before relying on this for a real decision, same as the Ashtakoot matching tab.
+          </p>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-panchanga">
+        <div class="panel">
+          <h2 class="section-title">Panchanga</h2>
+          <table>
+            <tbody>
+              <tr><th>Tithi</th><td>{{ chart.panchanga.tithi.name }} ({{ chart.panchanga.paksha }} Paksha)</td></tr>
+              <tr><th>Vara</th><td>{{ chart.panchanga.vara }}</td></tr>
+              <tr><th>Nakshatra</th><td>{{ chart.panchanga.nakshatra.name }}</td></tr>
+              <tr><th>Yoga</th><td>{{ chart.panchanga.yoga.name }}</td></tr>
+              <tr><th>Karana</th><td>{{ chart.panchanga.karana.name }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {% if match_report %}
+      <div class="tab-panel" id="panel-compat">
+        <div class="panel">
+          <h2 class="section-title">Marriage compatibility (Ashtakoot Guna Milan)</h2>
+          {% if resolved_place_b %}
+          <p class="hint">Second person's resolved place: {{ resolved_place_b }}</p>
+          {% endif %}
+          <p>
+            First person &mdash; Rasi: <strong>{{ match_report.bride_moon_sign.value }}</strong>,
+            Nakshatra: <strong>{{ match_report.bride_nakshatra }}</strong>
+            &nbsp;|&nbsp;
+            Second person &mdash; Rasi: <strong>{{ match_report.groom_moon_sign.value }}</strong>,
+            Nakshatra: <strong>{{ match_report.groom_nakshatra }}</strong>
+          </p>
+          <table>
+            <thead><tr><th>Koota</th><th>Points</th><th>Details</th></tr></thead>
+            <tbody>
+              {% for k in match_report.kootas %}
+              <tr class="{% if k.points_earned==0 %}dosha-row{% endif %}">
+                <td>{{ k.name }}</td>
+                <td>{{ k.points_earned }} / {{ k.max_points|int }}</td>
+                <td>{{ k.reason }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="total-row">
+                <td><strong>Total</strong></td>
+                <td><strong>{{ match_report.total_points }} / {{ match_report.max_points|int }}</strong></td>
+                <td><strong>{{ match_report.verdict }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 class="section-title">Mangal Dosha (Mars affliction)</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>First person</th>
+                <td class="{% if match_report.bride_mangal_dosha.has_dosha %}dosha-row{% endif %}">
+                  {{ match_report.bride_mangal_dosha.reason }}
+                </td>
+              </tr>
+              <tr>
+                <th>Second person</th>
+                <td class="{% if match_report.groom_mangal_dosha.has_dosha %}dosha-row{% endif %}">
+                  {{ match_report.groom_mangal_dosha.reason }}
+                </td>
+              </tr>
+              <tr>
+                <th>Compatible?</th>
+                <td class="{% if not match_report.mangal_dosha_compatible %}dosha-row{% endif %}">
+                  {{ "Yes - both have matching Mangal Dosha status" if match_report.mangal_dosha_compatible
+                     else "Mismatch - one has Mangal Dosha and the other doesn't; traditionally worth discussing with an astrologer" }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="hint">
+            This is a classical rule-based calculation (no AI/model), following commonly-cited
+            Ashtakoot formulas. Some kootas (Vashya, Yoni, Tara) use documented simplifications
+            of finer classical variations - cross-check against a trusted source before relying
+            on this for an actual decision.
+          </p>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="tab-panel" id="panel-tools">
+        <div class="panel">
+          <h2 class="section-title">Navatara Chakra</h2>
+          {% set moon = chart.planets | selectattr("planet.value", "equalto", "Moon") | first %}
+          <p class="hint">
+            All 27 nakshatras classified by their Tara (star) relationship to this chart's own Moon
+            nakshatra, <strong>{{ moon.nakshatra.name }}</strong> - the same 9-fold Janma/Sampat/Vipat/...
+            counting used for the Ashtakoot Tara koota, applied here against every nakshatra rather than
+            just one other person's.
+          </p>
+          <table>
+            <thead><tr><th>#</th><th>Nakshatra</th><th>Tara category</th><th>Favorable?</th></tr></thead>
+            <tbody>
+              {% for entry in navatara_chakra %}
+              <tr class="{% if entry.nakshatra_index==moon.nakshatra.index %}current-period{% elif not entry.is_favorable %}dosha-row{% endif %}">
+                <td>{{ entry.nakshatra_index }}</td>
+                <td>{{ entry.nakshatra }}{% if entry.nakshatra_index==moon.nakshatra.index %} (Janma - own nakshatra){% endif %}</td>
+                <td>{{ entry.tara_category }}</td>
+                <td>{{ "Yes" if entry.is_favorable else "No" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-ask">
+        <div class="panel">
+          <h2 class="section-title">Ask about this chart</h2>
+          <form method="post" action="/ask" class="ask-form">
+            <input type="hidden" name="name" value="{{ chart.birth_data.name }}">
+            <input type="hidden" name="a_date" value="{{ chart.birth_data.birth_date }}">
+            <input type="hidden" name="a_time" value="{{ chart.birth_data.birth_time }}">
+            <input type="hidden" name="a_lat" value="{{ chart.birth_data.latitude }}">
+            <input type="hidden" name="a_lon" value="{{ chart.birth_data.longitude }}">
+            <input type="hidden" name="a_utc_offset" value="{{ chart.birth_data.utc_offset_hours }}">
+            <input type="hidden" name="ayanamsha" value="{{ chart.birth_data.ayanamsha }}">
+            <input type="hidden" name="node_type" value="{{ chart.birth_data.node_type.value }}">
+            <input type="hidden" name="house_system" value="{{ chart.birth_data.house_system.value }}">
+            {% if chart_b %}
+            <input type="hidden" name="b_name" value="{{ chart_b.birth_data.name }}">
+            <input type="hidden" name="b_date" value="{{ chart_b.birth_data.birth_date }}">
+            <input type="hidden" name="b_time" value="{{ chart_b.birth_data.birth_time }}">
+            <input type="hidden" name="b_lat" value="{{ chart_b.birth_data.latitude }}">
+            <input type="hidden" name="b_lon" value="{{ chart_b.birth_data.longitude }}">
+            <input type="hidden" name="b_utc_offset" value="{{ chart_b.birth_data.utc_offset_hours }}">
+            {% endif %}
+            <div class="field">
+              <label for="question">Your question</label>
+              <input type="text" id="question" name="question"
+                     placeholder="e.g. What does my current dasha mean for career?"
+                     value="{{ question or '' }}">
+            </div>
+            <div class="submit-row">
+              <button type="submit">Ask</button>
+            </div>
+          </form>
+          <p class="hint">Answered by a local AI model (no internet), grounded in this chart's actual data plus a reference knowledge base.</p>
+          {% if answer %}
+          <div class="answer-box">
+            <p class="answer-question"><strong>Q:</strong> {{ question }}</p>
+            <p class="answer-text"><strong>A:</strong> {{ answer }}</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</body>
+</html>

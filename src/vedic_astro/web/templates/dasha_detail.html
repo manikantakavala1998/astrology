@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vedic-astro - Dasha detail</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>Dasha sub-periods</h1>
+  <p class="subtitle">Pratyantardasha &rarr; Sookshma &rarr; Prana</p>
+
+  <div class="page">
+
+    {% if error %}
+    <div class="panel error">{{ error }}</div>
+    {% else %}
+    <div class="panel">
+      <h2 class="section-title">{{ antardasha_lord.value }} Antardasha - Pratyantardasha breakdown</h2>
+      <p class="hint">
+        Click a Pratyantardasha row to reveal its Sookshma breakdown, and a Sookshma row to reveal
+        its Prana breakdown. Computed just for this one Antardasha branch (729 periods max), not the
+        whole chart - see the Dasha tab for the main Mahadasha/Antardasha table.
+      </p>
+
+      {% for pratyantardasha in pratyantardasha %}
+      <details class="dasha-detail-level">
+        <summary>
+          <strong>{{ pratyantardasha.planet.value }}</strong>
+          {{ pratyantardasha.start.strftime("%Y-%m-%d") }} &rarr; {{ pratyantardasha.end.strftime("%Y-%m-%d") }}
+        </summary>
+        <table>
+          <thead><tr><th>Sookshma</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>
+            {% for sookshma in pratyantardasha.sub_periods %}
+            <tr>
+              <td colspan="3" style="padding:0;">
+                <details class="dasha-detail-level">
+                  <summary>
+                    {{ sookshma.planet.value }}
+                    {{ sookshma.start.strftime("%Y-%m-%d") }} &rarr; {{ sookshma.end.strftime("%Y-%m-%d") }}
+                  </summary>
+                  <table>
+                    <thead><tr><th>Prana</th><th>Start</th><th>End</th></tr></thead>
+                    <tbody>
+                      {% for prana in sookshma.sub_periods %}
+                      <tr>
+                        <td>{{ prana.planet.value }}</td>
+                        <td>{{ prana.start.strftime("%Y-%m-%d") }}</td>
+                        <td>{{ prana.end.strftime("%Y-%m-%d") }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </details>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <p><a href="/">&larr; Back to chart</a></p>
+
+  </div>
+</body>
+</html>
