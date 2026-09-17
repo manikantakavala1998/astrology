@@ -1,7 +1,14 @@
 from datetime import date, time
 
 from vedic_astro.chart import build_kundali_chart
-from vedic_astro.chart_render import SOUTH_INDIAN_GRID, navamsa_layout, south_indian_layout
+from vedic_astro.chart_render import (
+    SOUTH_INDIAN_GRID,
+    ashtakavarga_mini_grid,
+    bhava_chalit_layout,
+    navamsa_layout,
+    south_indian_layout,
+    varga_layout,
+)
 from vedic_astro.models import BirthData, Sign
 from vedic_astro.varga import navamsa_sign
 
@@ -86,3 +93,71 @@ def test_navamsa_layout_places_planets_by_d9_sign_not_d1_sign() -> None:
         cell for row in grid for cell in row if cell is not None and cell.sign == sun.navamsa_sign
     )
     assert "Su" in sun_cell.planet_labels
+
+
+def test_varga_layout_matches_south_indian_layout_for_d1() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert varga_layout(chart, "D1") == south_indian_layout(chart)
+
+
+def test_varga_layout_marks_the_chart_specific_ascendant_as_house_one() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = varga_layout(chart, "D10")
+    ascendant_cells = [
+        cell for row in grid for cell in row if cell is not None and cell.is_ascendant
+    ]
+    assert len(ascendant_cells) == 1
+    assert ascendant_cells[0].sign == chart.ascendant.varga_signs["D10"]
+    assert ascendant_cells[0].house == 1
+
+
+def test_varga_layout_places_planets_by_their_own_varga_sign() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = varga_layout(chart, "D3")
+    sun = next(p for p in chart.planets if p.planet.value == "Sun")
+    sun_d3_sign = sun.varga_signs["D3"]
+    sun_cell = next(
+        cell for row in grid for cell in row if cell is not None and cell.sign == sun_d3_sign
+    )
+    assert "Su" in sun_cell.planet_labels
+
+
+def test_bhava_chalit_layout_places_planets_by_d1_sign() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = bhava_chalit_layout(chart)
+    sun = next(p for p in chart.planets if p.planet.value == "Sun")
+    sun_cell = next(
+        cell for row in grid for cell in row if cell is not None and cell.sign == sun.sign
+    )
+    assert "Su" in sun_cell.planet_labels
+
+
+def test_bhava_chalit_layout_has_exactly_one_house_one_cell() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = bhava_chalit_layout(chart)
+    house_one_cells = [cell for row in grid for cell in row if cell is not None and cell.house == 1]
+    assert len(house_one_cells) == 1
+    assert house_one_cells[0].is_ascendant
+
+
+def test_bhava_chalit_layout_covers_all_twelve_houses_exactly_once() -> None:
+    # True for this moderate-latitude fixture, but not a guaranteed property
+    # of Placidus cusps in general - at extreme latitudes, house spans can
+    # be uneven enough that a house catches zero or two sign-midpoints. This
+    # is a regression check for the sample data, not a universal invariant.
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = bhava_chalit_layout(chart)
+    houses = sorted(cell.house for row in grid for cell in row if cell is not None)
+    assert houses == list(range(1, 13))
+
+
+def test_ashtakavarga_mini_grid_shows_bindus_and_natal_occupation() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert chart.ashtakavarga is not None
+    natal_signs = {p.sign for p in chart.planets}
+    grid = ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs)
+    cells = [cell for row in grid for cell in row if cell is not None]
+    assert len(cells) == 12
+    assert sum(cell.bindus for cell in cells) == 337
+    for cell in cells:
+        assert cell.is_natal_occupied == (cell.sign in natal_signs)

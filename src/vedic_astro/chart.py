@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+from vedic_astro.ashtakavarga import compute_ashtakavarga
 from vedic_astro.aspects import compute_aspects
 from vedic_astro.dasha import compute_vimshottari_dasha
+from vedic_astro.dignity import planet_dignity
+from vedic_astro.divisional_charts import VARGA_REGISTRY
+from vedic_astro.doshas import compute_saturn_afflictions, compute_shani_dosha
 from vedic_astro.ephemeris import ascendant_longitude, house_cusps, planet_positions
+from vedic_astro.general_doshas import (
+    compute_guru_chandala_dosha,
+    compute_kalasarpa_dosha,
+    compute_kuja_dosha,
+)
 from vedic_astro.jaimini import compute_chara_dasha, compute_chara_karakas
-from vedic_astro.models import BirthData, HouseSystem, KundaliChart, Planet, PlanetPosition
+from vedic_astro.models import BirthData, HouseSystem, KundaliChart, Planet, PlanetPosition, Sign
 from vedic_astro.nakshatra import nakshatra_for_longitude
 from vedic_astro.panchanga import compute_panchanga
 from vedic_astro.rashi_bhava import (
@@ -16,7 +25,16 @@ from vedic_astro.rashi_bhava import (
     sign_for_longitude,
     whole_sign_house,
 )
+from vedic_astro.saturn_transit import compute_saturn_transit_timeline
 from vedic_astro.varga import hora_lord, hora_sign, navamsa_sign
+
+
+def _built_varga_signs(longitude: float) -> dict[str, Sign]:
+    return {
+        spec.code: spec.sign_fn(longitude)
+        for spec in VARGA_REGISTRY
+        if spec.sign_fn is not None
+    }
 
 
 def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
@@ -26,6 +44,7 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
         utc_dt, birth_data.latitude, birth_data.longitude, birth_data.ayanamsha
     )
     ascendant = build_ascendant(asc_longitude)
+    ascendant = ascendant.model_copy(update={"varga_signs": _built_varga_signs(asc_longitude)})
 
     cusps: list[float] | None = None
     if birth_data.house_system != HouseSystem.WHOLE_SIGN:
@@ -33,6 +52,15 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
             utc_dt, birth_data.latitude, birth_data.longitude, birth_data.ayanamsha,
             birth_data.house_system,
         )
+
+    # Bhava Chalit is always computed on Placidus, independent of the birth
+    # data's own house_system setting (which only ever affects the `house`
+    # column above) - otherwise it would be visually identical to the D1
+    # chart whenever the user has Whole Sign selected.
+    bhava_chalit_cusps = house_cusps(
+        utc_dt, birth_data.latitude, birth_data.longitude, birth_data.ayanamsha,
+        HouseSystem.PLACIDUS,
+    )
 
     planets: list[PlanetPosition] = []
     # raw_positions preserves the conventional Navagraha order (Sun..Saturn, Rahu, Ketu).
@@ -55,6 +83,9 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
                 navamsa_sign=navamsa_sign(raw.longitude),
                 hora_sign=hora_sign(raw.longitude),
                 hora_lord=hora_lord(raw.longitude),
+                varga_signs=_built_varga_signs(raw.longitude),
+                bhava_chalit_house=house_from_cusps(raw.longitude, bhava_chalit_cusps),
+                dignity=planet_dignity(planet, sign),
             )
         )
 
@@ -68,13 +99,24 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
         moon_longitude=moon_longitude, birth_datetime=birth_data.local_datetime
     )
 
+    aspects = compute_aspects(planets)
+    moon_sign = next(p.sign for p in planets if p.planet == Planet.MOON)
+
     return KundaliChart(
         birth_data=birth_data,
         ascendant=ascendant,
         planets=planets,
         panchanga=panchanga,
         dasha=dasha,
-        aspects=compute_aspects(planets),
+        aspects=aspects,
         chara_karakas=compute_chara_karakas(planets),
         chara_dasha=compute_chara_dasha(ascendant.sign, planets, birth_data.local_datetime),
+        bhava_chalit_cusps=bhava_chalit_cusps,
+        ashtakavarga=compute_ashtakavarga(planets, ascendant.sign, bhava_chalit_cusps),
+        shani_dosha=compute_shani_dosha(planets),
+        saturn_afflictions=compute_saturn_afflictions(planets, aspects),
+        saturn_transit=compute_saturn_transit_timeline(birth_data, moon_sign, ascendant.sign),
+        kalasarpa_dosha=compute_kalasarpa_dosha(planets),
+        kuja_dosha=compute_kuja_dosha(planets, ascendant.sign),
+        guru_chandala_dosha=compute_guru_chandala_dosha(planets, aspects),
     )

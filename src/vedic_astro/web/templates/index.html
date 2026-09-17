@@ -17,7 +17,7 @@
     {% endif %}
 
     <div class="panel">
-      <h2 class="section-title">Birth details</h2>
+      <h2 class="section-title">&#127769; Birth details</h2>
       <form method="post" action="/">
         <div class="form-grid">
           <div class="field">
@@ -53,7 +53,7 @@
           <div class="field place-field">
             <label for="place_name">Place of birth</label>
             <input type="text" id="place_name" name="place_name"
-                   placeholder="e.g. Chennai, Tamil Nadu" value="{{ form_values.place_name }}" required>
+                   placeholder="e.g. Chennai, Tamil Nadu" value="{{ form_values.place_name }}">
           </div>
         </div>
 
@@ -204,7 +204,7 @@
 
     {% if candidates %}
     <div class="panel">
-      <h2 class="section-title">Which place did you mean?</h2>
+      <h2 class="section-title">&#128205; Which place did you mean?</h2>
       <p class="hint">Multiple places matched "{{ form_values.place_name }}" for the first person - pick the right one.</p>
       <div class="candidate-list">
         {% for c in candidates %}
@@ -234,7 +234,7 @@
 
     {% if candidates_b %}
     <div class="panel">
-      <h2 class="section-title">Which place did you mean for the second person?</h2>
+      <h2 class="section-title">&#128205; Which place did you mean for the second person?</h2>
       <p class="hint">Multiple places matched "{{ form_values.b_place_name }}" - pick the right one.</p>
       <div class="candidate-list">
         {% for c in candidates_b %}
@@ -268,6 +268,11 @@
       <input type="radio" name="main-tabs" id="tab-dasha" class="tab-radio">
       <input type="radio" name="main-tabs" id="tab-aspects" class="tab-radio">
       <input type="radio" name="main-tabs" id="tab-jaimini" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-yogas" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-divisional" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-ashtakavarga" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-shani" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-dosha" class="tab-radio">
       <input type="radio" name="main-tabs" id="tab-panchanga" class="tab-radio">
       {% if match_report %}<input type="radio" name="main-tabs" id="tab-compat" class="tab-radio">{% endif %}
       <input type="radio" name="main-tabs" id="tab-tools" class="tab-radio">
@@ -278,6 +283,11 @@
         <label for="tab-dasha">Dasha</label>
         <label for="tab-aspects">Aspects</label>
         <label for="tab-jaimini">Jaimini</label>
+        <label for="tab-yogas">Yogas</label>
+        <label for="tab-divisional">Divisional Charts</label>
+        <label for="tab-ashtakavarga">Ashtakavarga</label>
+        <label for="tab-shani">Shani</label>
+        <label for="tab-dosha">Dosha</label>
         <label for="tab-panchanga">Panchanga</label>
         {% if match_report %}<label for="tab-compat">Compatibility</label>{% endif %}
         <label for="tab-tools">Tools</label>
@@ -288,7 +298,7 @@
         <div class="chart-tab-grid">
           <div class="chart-tab-left">
             <div class="panel">
-              <h2 class="section-title">Rasi Chakra (D1){% if chart.birth_data.name %} - {{ chart.birth_data.name }}{% endif %}</h2>
+              <h2 class="section-title">&#128302; Rasi Chakra (D1){% if chart.birth_data.name %} - {{ chart.birth_data.name }}{% endif %}</h2>
               {% if resolved_place %}
               <p class="hint">Resolved place: {{ resolved_place }} (lat {{ "%.4f"|format(chart.birth_data.latitude) }},
                  lon {{ "%.4f"|format(chart.birth_data.longitude) }}, UTC{{ "%+.2f"|format(chart.birth_data.utc_offset_hours) }})</p>
@@ -318,7 +328,7 @@
             </div>
 
             <div class="panel">
-              <h2 class="section-title">Vimshottari Dasha</h2>
+              <h2 class="section-title">&#8987; Vimshottari Dasha</h2>
               {% if current_mahadasha %}
               <p>Current dasha: <strong>{{ current_mahadasha.planet.value }}</strong>
                 {% if current_antardasha %}/ <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
@@ -328,7 +338,7 @@
             </div>
 
             <div class="panel">
-              <h2 class="section-title">Navamsa Chakra (D9)</h2>
+              <h2 class="section-title">&#128141; Navamsa Chakra (D9)</h2>
               <p class="hint">The most important divisional chart for judging marriage and the true strength of planets.</p>
               <div class="chart-grid">
                 {% for row in navamsa_grid %}
@@ -349,7 +359,7 @@
 
           <div class="chart-tab-right">
             <div class="panel">
-              <h2 class="section-title">Planetary Positions</h2>
+              <h2 class="section-title">&#128302; Planetary Positions</h2>
               {% if current_mahadasha %}
               <p class="hint">Current dasha: <strong>{{ current_mahadasha.planet.value }}</strong>
                 {% if current_antardasha %}/ <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
@@ -359,7 +369,8 @@
                 <thead>
                   <tr>
                     <th>Planet</th><th>Sign</th><th>Degree</th><th>House</th>
-                    <th>Nakshatra</th><th>Pada</th><th>Navamsa (D9)</th><th>Hora (D2)</th><th>Retrograde</th>
+                    <th>Nakshatra</th><th>Pada</th><th>Navamsa (D9)</th><th>Hora (D2)</th>
+                    <th>Dignity</th><th>Retrograde</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -373,11 +384,19 @@
                     <td>{{ p.nakshatra.pada }}</td>
                     <td>{{ p.navamsa_sign.value if p.navamsa_sign else "-" }}</td>
                     <td>{{ p.hora_sign.value if p.hora_sign else "-" }} ({{ p.hora_lord.value if p.hora_lord else "-" }})</td>
+                    <td class="{% if p.dignity.value == 'Exalted' %}sav-band-strong{% elif p.dignity.value == 'Debilitated' %}dosha-row{% endif %}">
+                      {{ p.dignity.value }}
+                    </td>
                     <td>{{ "Yes" if p.retrograde else "No" }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
               </table>
+              <p class="hint">
+                Saturn-related afflictions (Shani Dosha, Shani Neech Dosha, Vish Dosha, Shani Mangal Dosha,
+                Shani Rahu Dosha) and Saturn's transit timeline (Sade Sati, Kantaka Shani, Ashtama Shani)
+                have moved to the Shani tab. Kalasarpa/Kuja/Guru Chandala doshas are in the Dosha tab.
+              </p>
             </div>
           </div>
         </div>
@@ -385,7 +404,7 @@
 
       <div class="tab-panel" id="panel-dasha">
         <div class="panel">
-          <h2 class="section-title">Vimshottari Dasha</h2>
+          <h2 class="section-title">&#8987; Vimshottari Dasha</h2>
           {% if current_mahadasha %}
           <p>Current mahadasha: <strong>{{ current_mahadasha.planet.value }}</strong>
             {% if current_antardasha %}&mdash; antardasha: <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
@@ -423,7 +442,7 @@
 
       <div class="tab-panel" id="panel-aspects">
         <div class="panel">
-          <h2 class="section-title">Planetary Aspects (Graha Drishti)</h2>
+          <h2 class="section-title">&#128301; Planetary Aspects (Graha Drishti)</h2>
           <p class="hint">
             Every planet aspects its 7th house. Mars also aspects 4th &amp; 8th, Jupiter also 5th &amp; 9th
             (both special), Saturn also 3rd &amp; 10th (both special) - Sun, Moon, Mercury, and Venus have
@@ -448,7 +467,7 @@
         </div>
 
         <div class="panel">
-          <h2 class="section-title">Rashi Drishti (Sign-to-Sign Aspects)</h2>
+          <h2 class="section-title">&#128279; Rashi Drishti (Sign-to-Sign Aspects)</h2>
           <p class="hint">
             A separate classical system from Graha Drishti above: signs aspect other signs regardless of
             which planets occupy them. Movable signs aspect all fixed signs except the one immediately
@@ -475,7 +494,7 @@
 
       <div class="tab-panel" id="panel-jaimini">
         <div class="panel">
-          <h2 class="section-title">Chara Karakas</h2>
+          <h2 class="section-title">&#129517; Chara Karakas</h2>
           <p class="hint">
             Jaimini astrology - a different branch from the Vimshottari/Parashari system used elsewhere in this
             app. The 7 classical grahas ranked by degree within their sign, highest first.
@@ -495,7 +514,7 @@
         </div>
 
         <div class="panel">
-          <h2 class="section-title">Chara Dasha</h2>
+          <h2 class="section-title">&#8987; Chara Dasha</h2>
           <table>
             <thead><tr><th>Sign</th><th>Lord</th><th>Years</th><th>Start</th><th>End</th></tr></thead>
             <tbody>
@@ -518,9 +537,337 @@
         </div>
       </div>
 
+      <div class="tab-panel" id="panel-yogas">
+        <div class="panel">
+          <h2 class="section-title">&#10024; Yogas</h2>
+          <div class="held-chart-notice">
+            <p class="held-chart-title">Content coming soon</p>
+            <p class="hint pending-note">
+              This tab is a placeholder - the specific yogas to compute here are still pending.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-divisional">
+        <div class="panel">
+          <h2 class="section-title">&#128193; 23 Standard Varga (Divisional) Charts</h2>
+          <p class="hint">
+            Bhava Chalit (house-cusp based) plus all 23 classical divisional charts. Charts whose classical
+            formula is well-established across sources are shown as a full chart; the rest are listed with
+            a note explaining why they're held back rather than shown as a guess.
+          </p>
+          <div class="subtab-columns">
+            <div class="subtab-column">
+              <div class="subtab-heading">&#9989; Available now - click to view</div>
+              <div class="subtab-group">
+                {% for entry in divisional_chart_entries if entry.grid %}
+                <input type="radio" name="divisional-subtabs" id="subtab-{{ entry.code }}" class="subtab-radio"
+                       {% if loop.first %}checked{% endif %}>
+                <label for="subtab-{{ entry.code }}" class="subtab-label">{{ entry.name }}</label>
+                <div class="subtab-panel">
+                  <div class="chart-grid">
+                    {% for row in entry.grid %}
+                      {% for cell in row %}
+                        {% if cell is none %}
+                        <div class="chart-cell blank"></div>
+                        {% else %}
+                        <div class="chart-cell {% if cell.is_ascendant %}ascendant{% endif %}">
+                          <span class="cell-sign">{{ cell.sign.value }} (H{{ cell.house }})</span>
+                          <span class="cell-planets">{{ cell.planet_labels | join(", ") }}</span>
+                        </div>
+                        {% endif %}
+                      {% endfor %}
+                    {% endfor %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="subtab-column">
+              <div class="subtab-heading subtab-heading-held">&#128274; Not yet available (held pending a confirmed source)</div>
+              <div class="subtab-group">
+                {% for entry in divisional_chart_entries if not entry.grid %}
+                <input type="radio" name="divisional-subtabs" id="subtab-{{ entry.code }}" class="subtab-radio">
+                <label for="subtab-{{ entry.code }}" class="subtab-label held">&#128274; {{ entry.name }}</label>
+                <div class="subtab-panel">
+                  <div class="held-chart-notice">
+                    <p class="held-chart-title">&#128274; Not shown on purpose - this isn't a bug</p>
+                    <p class="hint pending-note">{{ entry.held_reason }}</p>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-ashtakavarga">
+        <div class="panel">
+          <h2 class="section-title">&#128202; Ashtakavarga (Parasara method)</h2>
+          <p class="hint">
+            Bhinnashtakavarga (BAV, 0-8 bindus per sign) for each of the 7 classical planets, plus the
+            combined Samudaya Ashtakavarga (SAV, always totaling 337 bindus across all 12 signs).
+            Signs occupied in the natal D1 chart are highlighted. Only the Parasara method is built -
+            a "Varahamihira method" is not implemented pending a confirmed source.
+          </p>
+          <div class="ashtakavarga-tiles">
+            {% for tile in ashtakavarga_tiles %}
+            <div class="ashtakavarga-tile {% if tile.pending %}held{% endif %}">
+              <h3 class="mini-chart-title">{% if tile.pending %}&#128274; {% endif %}{{ tile.label }}</h3>
+              {% if tile.pending %}
+              <div class="held-chart-notice">
+                <p class="held-chart-title">&#128274; Not shown on purpose - this isn't a bug</p>
+                <p class="hint pending-note">No verified classical scoring table exists yet for the
+                   Ascendant's own Ashtakavarga chart, so nothing is guessed here.</p>
+              </div>
+              {% else %}
+              <div class="mini-chart-grid">
+                {% for row in tile.grid %}
+                  {% for cell in row %}
+                    {% if cell is none %}
+                    <div class="mini-chart-cell blank"></div>
+                    {% else %}
+                    <div class="mini-chart-cell bindus-{{ cell.bindus }} {% if cell.is_natal_occupied %}natal-occupied{% endif %}">
+                      <span class="cell-sign">{{ cell.sign.value[:3] }}</span>
+                      <span class="cell-bindus">{{ cell.bindus }}</span>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#127968; Bhava Ashtakavarga</h2>
+          <p class="hint">
+            SAV totals redistributed onto actual house-cusp boundaries (Bhava Chalit / Placidus), read
+            against the classical score bands below.
+          </p>
+          <table>
+            <thead><tr><th>House</th><th>Score</th><th>Meter</th><th>Reading</th></tr></thead>
+            <tbody>
+              {% for row in bhava_ashtakavarga_rows %}
+              <tr>
+                <td>House {{ row.house }}</td>
+                <td>{{ row.score }}</td>
+                <td>
+                  <div class="score-meter">
+                    <div class="score-meter-track">
+                      <div class="score-meter-fill sav-band-{{ row.band_class }}"
+                           style="width: {{ (row.score / 56 * 100) | round(1) }}%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="sav-band-{{ row.band_class }}">{{ row.band_label }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <table class="sav-legend">
+            <thead><tr><th>Score range</th><th>Strength level</th></tr></thead>
+            <tbody>
+              <tr><td>Below 20</td><td class="sav-band-critically-weak">&#9888;&#65039; Critically Weak</td></tr>
+              <tr><td>20 to 25</td><td class="sav-band-below-average">&#128201; Below Average</td></tr>
+              <tr><td>25 to 28</td><td class="sav-band-average">&#128202; Average / Neutral</td></tr>
+              <tr><td>28 to 32</td><td class="sav-band-strong">&#128200; Strong</td></tr>
+              <tr><td>Above 32</td><td class="sav-band-exceptional">&#10024; Exceptionally Powerful</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-shani">
+        <div class="panel">
+          <h2 class="section-title">&#9888;&#65039; Natal Saturn Doshas</h2>
+          <table>
+            <tbody>
+              <tr>
+                <th>Shani Dosha (house)</th>
+                <td class="{% if chart.shani_dosha.has_house_dosha %}dosha-row{% endif %}">{{ chart.shani_dosha.house_reason }}</td>
+              </tr>
+              <tr>
+                <th>Shani Neech Dosha</th>
+                <td class="{% if chart.shani_dosha.has_neech_dosha %}dosha-row{% endif %}">{{ chart.shani_dosha.neech_reason }}</td>
+              </tr>
+              <tr>
+                <th>{{ chart.saturn_afflictions.vish_dosha.name }}</th>
+                <td class="{% if chart.saturn_afflictions.vish_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.saturn_afflictions.vish_dosha.reason }}</td>
+              </tr>
+              <tr>
+                <th>{{ chart.saturn_afflictions.shani_mangal_dosha.name }}</th>
+                <td class="{% if chart.saturn_afflictions.shani_mangal_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.saturn_afflictions.shani_mangal_dosha.reason }}</td>
+              </tr>
+              <tr>
+                <th>{{ chart.saturn_afflictions.shani_rahu_dosha.name }}</th>
+                <td class="{% if chart.saturn_afflictions.shani_rahu_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.saturn_afflictions.shani_rahu_dosha.reason }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#8987; Sade Sati (Lifetime Timeline)</h2>
+          <p class="hint">
+            Phase 1 (Rising) = Saturn in the 12th sign from your Moon sign; Phase 2 (Peak) = directly over
+            your Moon sign; Phase 3 (Setting) = the 2nd sign from your Moon sign. Scanned across your full
+            lifetime (birth to +100 years) - dates are accurate to within about half a day. A phase can
+            appear more than once per cycle if Saturn's retrograde motion revisited it.
+          </p>
+          {% for row in sade_sati_rows %}
+          <div class="transit-cycle">
+            <h3 class="transit-cycle-title">
+              Cycle {{ loop.index }}
+              <span class="status-badge status-{{ row.status | lower }}">{{ row.status }}</span>
+              &mdash; {{ row.cycle.start.strftime("%Y-%m-%d") }} to {{ row.cycle.end.strftime("%Y-%m-%d") }}
+            </h3>
+            {% if row.cycle.truncated_at_start %}
+            <p class="hint">Saturn was already in this phase at birth - the start date shown is the birth date.</p>
+            {% endif %}
+            <table>
+              <thead><tr><th>Phase</th><th>Sign</th><th>Start</th><th>End</th></tr></thead>
+              <tbody>
+                {% for seg in row.cycle.segments %}
+                <tr>
+                  <td>Phase {{ seg.phase }}</td>
+                  <td>{{ seg.segment.sign.value }}</td>
+                  <td>{{ seg.segment.start.strftime("%Y-%m-%d") }}</td>
+                  <td>{{ seg.segment.end.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#9888;&#65039; Kantaka Shani</h2>
+          <p class="hint">
+            Saturn transiting the 4th, 7th, or 10th house (Kendra/angular houses) - counted from both your
+            Moon sign and your Ascendant, per the classical rule that considers either base sign.
+          </p>
+          <h3 class="section-subtitle">From Moon (Janma Rashi)</h3>
+          <table>
+            <thead><tr><th>House</th><th>Start</th><th>End</th></tr></thead>
+            <tbody>
+              {% for house_group in chart.saturn_transit.kantaka_shani_from_moon %}
+                {% for occ in house_group.occurrences %}
+                <tr>
+                  <td>House {{ house_group.house }}</td>
+                  <td>{{ occ.start.strftime("%Y-%m-%d") }}</td>
+                  <td>{{ occ.end.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+          <h3 class="section-subtitle">From Lagna (Ascendant)</h3>
+          <table>
+            <thead><tr><th>House</th><th>Start</th><th>End</th></tr></thead>
+            <tbody>
+              {% for house_group in chart.saturn_transit.kantaka_shani_from_lagna %}
+                {% for occ in house_group.occurrences %}
+                <tr>
+                  <td>House {{ house_group.house }}</td>
+                  <td>{{ occ.start.strftime("%Y-%m-%d") }}</td>
+                  <td>{{ occ.end.strftime("%Y-%m-%d") }}</td>
+                </tr>
+                {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#9888;&#65039; Ashtama Shani (Transit)</h2>
+          <p class="hint">
+            Saturn transiting the 8th sign from your Moon - distinct from the natal Ashtama Shani dosha
+            (Saturn placed in the 8th house at birth) shown above; this is about when transiting Saturn
+            passes through that sign during your life.
+          </p>
+          <table>
+            <thead><tr><th>Start</th><th>End</th></tr></thead>
+            <tbody>
+              {% for occ in chart.saturn_transit.ashtama_shani_transit %}
+              <tr>
+                <td>{{ occ.start.strftime("%Y-%m-%d") }}</td>
+                <td>{{ occ.end.strftime("%Y-%m-%d") }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-dosha">
+        <div class="panel">
+          <h2 class="section-title">&#128010; Kalasarpa Dosha</h2>
+          <p class="hint">
+            Forms when all 7 classical planets fall on one side of the Rahu-Ketu axis. The 12 named types
+            (by Rahu's house) are commonly cited but spelling varies slightly across sources.
+          </p>
+          <table>
+            <tbody>
+              <tr>
+                <th>Result</th>
+                <td class="{% if chart.kalasarpa_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.kalasarpa_dosha.reason }}</td>
+              </tr>
+              {% if chart.kalasarpa_dosha.dosha_type %}
+              <tr><th>Type</th><td>{{ chart.kalasarpa_dosha.dosha_type }}</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#128293; Kuja Dosha (Mangal Dosha / Angaraka Dosha)</h2>
+          <p class="hint">
+            The classical 3-reference-point check: Mars in houses 1/2/4/7/8/12 from Lagna, Moon, and Venus
+            separately. Triggering from Lagna is the strongest ("High/Full Manglik"); from Moon or Venus
+            only is weaker ("Low/Partial Manglik"). Separate from, and additional to, the Lagna-only Mangal
+            Dosha check on the Compatibility tab.
+          </p>
+          <table>
+            <thead><tr><th>Reference</th><th>Mars house</th><th>Result</th></tr></thead>
+            <tbody>
+              {% for rp in chart.kuja_dosha.reference_points %}
+              <tr class="{% if rp.has_dosha %}dosha-row{% endif %}">
+                <td>{{ rp.reference }}</td>
+                <td>House {{ rp.mars_house }}</td>
+                <td>{{ "Dosha" if rp.has_dosha else "No dosha" }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="total-row">
+                <td colspan="2">Overall</td>
+                <td>{{ chart.kuja_dosha.overall_classification }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#128218; Guru Chandala Dosha</h2>
+          <table>
+            <tbody>
+              <tr>
+                <th>Result</th>
+                <td class="{% if chart.guru_chandala_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.guru_chandala_dosha.reason }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="tab-panel" id="panel-panchanga">
         <div class="panel">
-          <h2 class="section-title">Panchanga</h2>
+          <h2 class="section-title">&#128197; Panchanga</h2>
           <table>
             <tbody>
               <tr><th>Tithi</th><td>{{ chart.panchanga.tithi.name }} ({{ chart.panchanga.paksha }} Paksha)</td></tr>
@@ -536,7 +883,7 @@
       {% if match_report %}
       <div class="tab-panel" id="panel-compat">
         <div class="panel">
-          <h2 class="section-title">Marriage compatibility (Ashtakoot Guna Milan)</h2>
+          <h2 class="section-title">&#128156; Marriage compatibility (Ashtakoot Guna Milan)</h2>
           {% if resolved_place_b %}
           <p class="hint">Second person's resolved place: {{ resolved_place_b }}</p>
           {% endif %}
@@ -565,7 +912,7 @@
             </tbody>
           </table>
 
-          <h3 class="section-title">Mangal Dosha (Mars affliction)</h3>
+          <h3 class="section-title">&#9888;&#65039; Mangal Dosha (Mars affliction)</h3>
           <table>
             <tbody>
               <tr>
@@ -601,7 +948,7 @@
 
       <div class="tab-panel" id="panel-tools">
         <div class="panel">
-          <h2 class="section-title">Navatara Chakra</h2>
+          <h2 class="section-title">&#11088; Navatara Chakra</h2>
           {% set moon = chart.planets | selectattr("planet.value", "equalto", "Moon") | first %}
           <p class="hint">
             All 27 nakshatras classified by their Tara (star) relationship to this chart's own Moon
@@ -609,10 +956,12 @@
             counting used for the Ashtakoot Tara koota, applied here against every nakshatra rather than
             just one other person's.
           </p>
+          {% for row in navatara_rows %}
+          <h3 class="section-subtitle">{{ row.label }}</h3>
           <table>
             <thead><tr><th>#</th><th>Nakshatra</th><th>Tara category</th><th>Favorable?</th></tr></thead>
             <tbody>
-              {% for entry in navatara_chakra %}
+              {% for entry in row.entries %}
               <tr class="{% if entry.nakshatra_index==moon.nakshatra.index %}current-period{% elif not entry.is_favorable %}dosha-row{% endif %}">
                 <td>{{ entry.nakshatra_index }}</td>
                 <td>{{ entry.nakshatra }}{% if entry.nakshatra_index==moon.nakshatra.index %} (Janma - own nakshatra){% endif %}</td>
@@ -622,12 +971,13 @@
               {% endfor %}
             </tbody>
           </table>
+          {% endfor %}
         </div>
       </div>
 
       <div class="tab-panel" id="panel-ask">
         <div class="panel">
-          <h2 class="section-title">Ask about this chart</h2>
+          <h2 class="section-title">&#128172; Ask about this chart</h2>
           <form method="post" action="/ask" class="ask-form">
             <input type="hidden" name="name" value="{{ chart.birth_data.name }}">
             <input type="hidden" name="a_date" value="{{ chart.birth_data.birth_date }}">

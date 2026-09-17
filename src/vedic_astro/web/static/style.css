@@ -1,23 +1,62 @@
 :root {
   color-scheme: light dark;
-  --bg: #f7f5f2;
+
+  --bg: #f4f3ee;
+  --bg-alt: #eceae2;
   --panel: #ffffff;
-  --text: #1f1b16;
-  --muted: #6b6259;
-  --border: #ddd4c7;
-  --accent: #9a4b2f;
-  --accent-bg: #f3e3da;
+  --text: #1c2130;
+  --muted: #656d82;
+  --border: #dfe1e8;
+  --border-strong: #c7cbd8;
+
+  /* Primary: deep indigo (the "official" tone). Secondary: warm gold. */
+  --accent: #26315c;
+  --accent-bg: #e7e9f5;
+  --accent-2: #a9791a;
+  --accent-2-bg: #f8eed2;
+
+  --success: #1e7a3d;
+  --success-bg: #e3f3e7;
+  --warning: #b3691e;
+  --warning-bg: #faeedb;
+  --danger: #b3261e;
+  --danger-bg: #fbe4e1;
+  --info: #1e6f7a;
+  --info-bg: #e1f0f2;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(20, 24, 40, 0.07);
+  --shadow-md: 0 6px 20px rgba(20, 24, 40, 0.09);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a1714;
-    --panel: #242019;
-    --text: #eee7dc;
-    --muted: #a89d8d;
-    --border: #3a332a;
-    --accent: #e08a5c;
-    --accent-bg: #3a271d;
+    --bg: #12141d;
+    --bg-alt: #191c28;
+    --panel: #1b1e2b;
+    --text: #e7e9f2;
+    --muted: #98a0b5;
+    --border: #2b2f42;
+    --border-strong: #3a3f57;
+
+    --accent: #8fa0e6;
+    --accent-bg: #232a48;
+    --accent-2: #e3b34f;
+    --accent-2-bg: #3a2f14;
+
+    --success: #4fbf75;
+    --success-bg: #16301f;
+    --warning: #e0a24f;
+    --warning-bg: #3a2a10;
+    --danger: #ea6b62;
+    --danger-bg: #3a1614;
+    --info: #5cc2d0;
+    --info-bg: #102e33;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
   }
 }
 
@@ -26,27 +65,37 @@
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 400px at 50% -120px, var(--accent-bg) 0%, transparent 70%),
+    var(--bg);
   color: var(--text);
   font-family: "Segoe UI", system-ui, sans-serif;
   margin: 0;
-  padding: 2rem 1rem 4rem;
+  padding: 2.5rem 1rem 4rem;
 }
 
 h1 {
   text-align: center;
   margin-bottom: 0.25rem;
+  letter-spacing: 0.01em;
+  font-size: 2rem;
+}
+
+h1::before {
+  content: "\2609  ";
+  color: var(--accent-2);
 }
 
 .subtitle {
   text-align: center;
   color: var(--muted);
   margin-top: 0;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  font-size: 0.95rem;
 }
 
 .page {
-  max-width: 1280px;
+  max-width: 1600px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -56,8 +105,13 @@ h1 {
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.75rem;
+  box-shadow: var(--shadow-sm);
+  /* Wide tables (e.g. Planetary Positions with the Dignity column added)
+     scroll inside the card instead of overflowing past its rounded
+     border - the page itself never scrolls horizontally. */
+  overflow-x: auto;
 }
 
 .form-grid {
@@ -68,19 +122,31 @@ h1 {
 
 .field label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
 }
 
 .field input,
 .field select {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.55rem 0.65rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
+  font-size: 0.95rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
 .place-field {
@@ -94,9 +160,9 @@ h1 {
 }
 
 .time-inputs select {
-  padding: 0.5rem;
+  padding: 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
 }
@@ -109,7 +175,8 @@ h1 {
 
 .advanced summary {
   cursor: pointer;
-  color: var(--muted);
+  color: var(--accent);
+  font-weight: 600;
   font-size: 0.9rem;
 }
 
@@ -121,6 +188,7 @@ h1 {
   color: var(--muted);
   font-size: 0.8rem;
   margin: 0.25rem 0 0;
+  line-height: 1.5;
 }
 
 .candidate-list {
@@ -137,10 +205,13 @@ h1 {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .candidate-button:hover {
   border-color: var(--accent);
+  color: var(--accent);
+  transform: none;
 }
 
 .submit-row {
@@ -151,21 +222,30 @@ button {
   background: var(--accent);
   color: #fff;
   border: none;
-  padding: 0.6rem 1.5rem;
-  border-radius: 6px;
+  padding: 0.65rem 1.6rem;
+  border-radius: var(--radius-sm);
   font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 button:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 .error {
-  background: var(--accent-bg);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 6px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
 }
 
@@ -177,26 +257,31 @@ button:hover {
   aspect-ratio: 1 / 1;
   max-width: 480px;
   margin: 0 auto;
-  border: 2px solid var(--border);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
 .chart-cell {
   border: 1px solid var(--border);
+  background: var(--panel);
   padding: 0.4rem;
   font-size: 0.8rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   min-height: 0;
+  transition: background 0.15s ease;
 }
 
 .chart-cell.blank {
-  background: var(--bg);
+  background: var(--bg-alt);
 }
 
 .chart-cell.ascendant {
   background: var(--accent-bg);
   border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .cell-sign {
@@ -206,8 +291,9 @@ button:hover {
 }
 
 .cell-planets {
-  font-weight: 600;
+  font-weight: 700;
   word-break: break-word;
+  color: var(--accent);
 }
 
 table {
@@ -218,21 +304,36 @@ table {
 
 th, td {
   text-align: left;
-  padding: 0.4rem 0.6rem;
+  padding: 0.55rem 0.7rem;
   border-bottom: 1px solid var(--border);
 }
 
 th {
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--bg-alt);
+}
+
+tbody tr:hover {
+  background: var(--bg-alt);
 }
 
 tr.current-period {
   background: var(--accent-bg);
 }
 
+tr.current-period:hover {
+  background: var(--accent-bg);
+}
+
 .section-title {
   margin-top: 0;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--accent-2-bg);
+  font-size: 1.15rem;
 }
 
 .compat-row {
@@ -251,8 +352,8 @@ tr.current-period {
 .person-b-section {
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
 }
 
 .person-b-section h3 {
@@ -271,18 +372,21 @@ tr.current-period {
 
 tr.dosha-row td,
 td.dosha-row {
-  color: var(--accent);
+  color: var(--danger);
+  font-weight: 600;
 }
 
 tr.total-row {
-  border-top: 2px solid var(--border);
+  border-top: 2px solid var(--border-strong);
+  font-weight: 700;
 }
 
 .answer-box {
   margin-top: 1rem;
-  padding: 1rem;
+  padding: 1rem 1.25rem;
   background: var(--accent-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--accent);
 }
 
 .answer-question {
@@ -300,7 +404,7 @@ tr.total-row {
 .tabs-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .tab-radio {
@@ -310,22 +414,26 @@ tr.total-row {
 .tab-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0.3rem;
   border-bottom: 2px solid var(--border);
+  padding-bottom: 2px;
 }
 
 .tab-bar label {
   padding: 0.6rem 1.1rem;
   cursor: pointer;
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 600;
   user-select: none;
+  border-bottom: 3px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .tab-bar label:hover {
-  color: var(--text);
+  color: var(--accent);
+  background: var(--bg-alt);
 }
 
 .tab-panel {
@@ -338,18 +446,29 @@ tr.total-row {
 #tab-dasha:checked ~ .tab-bar label[for="tab-dasha"],
 #tab-aspects:checked ~ .tab-bar label[for="tab-aspects"],
 #tab-jaimini:checked ~ .tab-bar label[for="tab-jaimini"],
+#tab-yogas:checked ~ .tab-bar label[for="tab-yogas"],
+#tab-divisional:checked ~ .tab-bar label[for="tab-divisional"],
+#tab-ashtakavarga:checked ~ .tab-bar label[for="tab-ashtakavarga"],
+#tab-shani:checked ~ .tab-bar label[for="tab-shani"],
+#tab-dosha:checked ~ .tab-bar label[for="tab-dosha"],
 #tab-panchanga:checked ~ .tab-bar label[for="tab-panchanga"],
 #tab-compat:checked ~ .tab-bar label[for="tab-compat"],
 #tab-tools:checked ~ .tab-bar label[for="tab-tools"],
 #tab-ask:checked ~ .tab-bar label[for="tab-ask"] {
   background: var(--accent-bg);
   color: var(--accent);
+  border-bottom-color: var(--accent-2);
 }
 
 #tab-chart:checked ~ #panel-chart,
 #tab-dasha:checked ~ #panel-dasha,
 #tab-aspects:checked ~ #panel-aspects,
 #tab-jaimini:checked ~ #panel-jaimini,
+#tab-yogas:checked ~ #panel-yogas,
+#tab-divisional:checked ~ #panel-divisional,
+#tab-ashtakavarga:checked ~ #panel-ashtakavarga,
+#tab-shani:checked ~ #panel-shani,
+#tab-dosha:checked ~ #panel-dosha,
 #tab-panchanga:checked ~ #panel-panchanga,
 #tab-compat:checked ~ #panel-compat,
 #tab-tools:checked ~ #panel-tools,
@@ -357,11 +476,134 @@ tr.total-row {
   display: flex;
 }
 
+/* ---- Divisional Charts sub-tabs: two side-by-side columns (available /
+   held), each its own independent flexbox order + adjacent-sibling group,
+   so adding another chart needs zero new CSS (unlike the per-ID lists
+   above, which don't scale to 24 entries). Both columns' radios share one
+   `name`, so only one chart is ever selected across the whole tab. ---- */
+
+.subtab-columns {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.subtab-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.subtab-heading {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.subtab-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.35rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  min-height: 100%;
+}
+
+.subtab-radio {
+  display: none;
+}
+
+.subtab-label {
+  order: 0;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.subtab-panel {
+  order: 1;
+  flex-basis: 100%;
+  display: none;
+  padding-top: 1.25rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.subtab-radio:checked + .subtab-label {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.subtab-radio:checked + .subtab-label + .subtab-panel {
+  display: block;
+}
+
+.subtab-label.held {
+  border-style: dashed;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.subtab-radio:checked + .subtab-label.held {
+  background: var(--bg-alt);
+  color: var(--muted);
+  border-color: var(--border-strong);
+}
+
+@media (max-width: 800px) {
+  .subtab-columns {
+    flex-direction: column;
+  }
+}
+
+/* ---- "Held" chart / tile notice: makes it unmistakable that a missing
+   chart is a deliberate accuracy choice, not a broken feature. ---- */
+
+.held-chart-notice {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.25rem;
+  text-align: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-alt);
+}
+
+.held-chart-title {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.ashtakavarga-tile.held {
+  border-style: dashed;
+  background: transparent;
+}
+
+.ashtakavarga-tile.held .mini-chart-title {
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* ---- Chart tab: Rasi/Dasha/Navamsa on the left, Planets on the right ---- */
 
 .chart-tab-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1.4fr);
+  grid-template-columns: minmax(320px, 0.85fr) minmax(480px, 1.6fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -383,7 +625,7 @@ tr.total-row {
 
 .dasha-detail-level {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin-bottom: 0.5rem;
   padding: 0.5rem 0.75rem;
 }
@@ -391,6 +633,8 @@ tr.total-row {
 .dasha-detail-level summary {
   cursor: pointer;
   font-size: 0.9rem;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .dasha-detail-level table {
@@ -408,6 +652,190 @@ tr.total-row {
 }
 
 .sub-periods-button {
-  padding: 0.25rem 0.6rem;
-  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  box-shadow: none;
 }
+
+/* ---- Ashtakavarga: 3x3 tile grid of mini South Indian score-charts ---- */
+
+.ashtakavarga-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.1rem;
+}
+
+@media (max-width: 700px) {
+  .ashtakavarga-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.ashtakavarga-tile {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  background: var(--bg-alt);
+}
+
+.mini-chart-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text);
+}
+
+.mini-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 2px;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mini-chart-cell {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  min-height: 0;
+  color: var(--text);
+}
+
+.mini-chart-cell.blank {
+  background: transparent;
+  border-color: transparent;
+}
+
+.mini-chart-cell.natal-occupied {
+  border: 2px solid var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent-2);
+  position: relative;
+  z-index: 1;
+}
+
+/* Bindu-count heatmap: 0-8 scale blended between the panel color and the
+   primary accent, so higher scores read visually "hotter" at a glance -
+   the "graph" feel, without any charting library or JS. */
+.mini-chart-cell.bindus-0 { background: var(--panel); }
+.mini-chart-cell.bindus-1 { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.mini-chart-cell.bindus-2 { background: color-mix(in srgb, var(--accent) 20%, var(--panel)); }
+.mini-chart-cell.bindus-3 { background: color-mix(in srgb, var(--accent) 32%, var(--panel)); }
+.mini-chart-cell.bindus-4 { background: color-mix(in srgb, var(--accent) 44%, var(--panel)); color: var(--text); }
+.mini-chart-cell.bindus-5 { background: color-mix(in srgb, var(--accent) 56%, var(--panel)); color: #fff; }
+.mini-chart-cell.bindus-6 { background: color-mix(in srgb, var(--accent) 68%, var(--panel)); color: #fff; }
+.mini-chart-cell.bindus-7 { background: color-mix(in srgb, var(--accent) 82%, var(--panel)); color: #fff; }
+.mini-chart-cell.bindus-8 { background: var(--accent); color: #fff; }
+
+.mini-chart-cell.bindus-4 .cell-sign,
+.mini-chart-cell.bindus-5 .cell-sign,
+.mini-chart-cell.bindus-6 .cell-sign,
+.mini-chart-cell.bindus-7 .cell-sign,
+.mini-chart-cell.bindus-8 .cell-sign {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.cell-bindus {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.pending-note {
+  margin: 0;
+  text-align: center;
+}
+
+.sav-legend {
+  margin-top: 1rem;
+  max-width: 460px;
+}
+
+.sav-band-critically-weak { color: var(--danger); font-weight: 700; }
+.sav-band-below-average { color: var(--warning); font-weight: 700; }
+.sav-band-average { color: var(--muted); font-weight: 700; }
+.sav-band-strong { color: var(--success); font-weight: 700; }
+.sav-band-exceptional { color: var(--info); font-weight: 700; }
+
+/* ---- Score meter: CSS-only horizontal bar, color-banded like the SAV
+   legend above - reusable later for Shadbala/Vimshopaka/Bhava Bala. ---- */
+
+.score-meter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 160px;
+}
+
+.score-meter-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.score-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.score-meter-fill.sav-band-critically-weak { background: var(--danger); }
+.score-meter-fill.sav-band-below-average { background: var(--warning); }
+.score-meter-fill.sav-band-average { background: var(--muted); }
+.score-meter-fill.sav-band-strong { background: var(--success); }
+.score-meter-fill.sav-band-exceptional { background: var(--info); }
+
+.score-meter-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-width: 2ch;
+  text-align: right;
+}
+
+/* ---- Shani tab: Sade Sati lifetime cycles ---- */
+
+.section-subtitle {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.transit-cycle {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--bg-alt);
+}
+
+.transit-cycle-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-past { background: var(--bg-alt); color: var(--muted); border: 1px solid var(--border-strong); }
+.status-current { background: var(--danger-bg); color: var(--danger); }
+.status-upcoming { background: var(--info-bg); color: var(--info); }

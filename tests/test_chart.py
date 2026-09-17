@@ -1,6 +1,7 @@
 from datetime import date, time
 
 from vedic_astro.chart import build_kundali_chart
+from vedic_astro.dignity import planet_dignity
 from vedic_astro.models import BirthData, HouseSystem, Planet, Sign
 
 
@@ -97,3 +98,75 @@ def test_chart_includes_chara_karakas_and_chara_dasha() -> None:
     assert chart.chara_karakas[0].karaka == "Atmakaraka"
     assert len(chart.chara_dasha) == 12
     assert chart.chara_dasha[0].sign == chart.ascendant.sign
+
+
+def test_every_planet_and_the_ascendant_have_the_confidently_built_varga_signs() -> None:
+    built_codes = {"D1", "D2", "D3", "D7", "D9", "D10", "D12", "D30"}
+    chart = build_kundali_chart(_sample_birth_data())
+    assert set(chart.ascendant.varga_signs.keys()) == built_codes
+    for planet_position in chart.planets:
+        assert set(planet_position.varga_signs.keys()) == built_codes
+        # D1's varga sign should always agree with the planet's own D1 sign.
+        assert planet_position.varga_signs["D1"] == planet_position.sign
+        assert planet_position.varga_signs["D9"] == planet_position.navamsa_sign
+
+
+def test_bhava_chalit_cusps_are_twelve_placidus_boundaries() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert len(chart.bhava_chalit_cusps) == 12
+    for planet_position in chart.planets:
+        assert 1 <= planet_position.bhava_chalit_house <= 12
+
+
+def test_bhava_chalit_cusps_are_the_same_regardless_of_house_system_setting() -> None:
+    # Bhava Chalit is always Placidus, independent of the Advanced house
+    # system setting used for the main `house` column.
+    whole_sign_data = _sample_birth_data()
+    placidus_data = _sample_birth_data()
+    placidus_data.house_system = HouseSystem.PLACIDUS
+    whole_sign_chart = build_kundali_chart(whole_sign_data)
+    placidus_chart = build_kundali_chart(placidus_data)
+    assert whole_sign_chart.bhava_chalit_cusps == placidus_chart.bhava_chalit_cusps
+
+
+def test_chart_includes_ashtakavarga_and_shani_dosha() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert chart.ashtakavarga is not None
+    assert sum(chart.ashtakavarga.sav.values()) == 337
+    assert chart.shani_dosha is not None
+    assert chart.shani_dosha.house_reason
+
+
+def test_every_planet_has_dignity_matching_its_own_sign() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    for planet_position in chart.planets:
+        expected = planet_dignity(planet_position.planet, planet_position.sign)
+        assert planet_position.dignity == expected
+
+
+def test_chart_includes_saturn_afflictions_and_general_doshas() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert chart.saturn_afflictions is not None
+    assert chart.saturn_afflictions.vish_dosha.reason
+    assert chart.saturn_afflictions.shani_mangal_dosha.reason
+    assert chart.saturn_afflictions.shani_rahu_dosha.reason
+    assert chart.kalasarpa_dosha is not None
+    assert chart.kalasarpa_dosha.reason
+    assert chart.kuja_dosha is not None
+    assert len(chart.kuja_dosha.reference_points) == 3
+    assert chart.guru_chandala_dosha is not None
+    assert chart.guru_chandala_dosha.reason
+
+
+def test_chart_includes_a_full_lifetime_saturn_transit_timeline() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert chart.saturn_transit is not None
+    assert chart.saturn_transit.scan_start == chart.birth_data.local_datetime
+    span_days = (chart.saturn_transit.scan_end - chart.saturn_transit.scan_start).days
+    assert span_days > 365 * 99
+    assert len(chart.saturn_transit.kantaka_shani_from_moon) == 3
+    assert len(chart.saturn_transit.kantaka_shani_from_lagna) == 3
+    # Over a 100-year lifetime, Saturn (29.5-year cycle) should complete
+    # multiple full passes through every one of these transit windows.
+    assert len(chart.saturn_transit.sade_sati_cycles) >= 2
+    assert len(chart.saturn_transit.ashtama_shani_transit) >= 2

@@ -1,3 +1,5 @@
+import re
+
 from fastapi.testclient import TestClient
 
 from vedic_astro.web.app import _to_24_hour_time, app
@@ -44,6 +46,18 @@ def test_get_root_shows_empty_form() -> None:
     assert "Generate chart" in response.text
 
 
+def test_place_name_field_is_not_html_required() -> None:
+    # Manual coordinates under Advanced are a documented, fully-supported
+    # alternative to place search (_resolve_location prioritizes them over
+    # place_name) - a hard HTML `required` on place_name would silently
+    # block that path in a real browser (curl-based POSTs never exercise
+    # client-side HTML5 validation, so this regressed unnoticed once).
+    response = client.get("/")
+    match = re.search(r'<input[^>]*id="place_name"[^>]*>', response.text, re.DOTALL)
+    assert match is not None
+    assert "required" not in match.group()
+
+
 def test_post_with_place_name_renders_chart() -> None:
     response = client.post(
         "/",
@@ -62,6 +76,37 @@ def test_post_with_place_name_renders_chart() -> None:
     assert "Ascendant (Lagna)" in response.text
     assert "Vimshottari Dasha" in response.text
     assert "Chennai" in response.text
+
+
+def test_post_renders_shani_dosha_yogas_tabs_and_dignity_column() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "manual_latitude": "13.0827",
+            "manual_longitude": "80.2707",
+            "manual_utc_offset_hours": "5.5",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert 'id="panel-shani"' in response.text
+    assert 'id="panel-dosha"' in response.text
+    assert 'id="panel-yogas"' in response.text
+    assert "Sade Sati" in response.text
+    assert "Kantaka Shani" in response.text
+    assert "Kalasarpa Dosha" in response.text
+    assert "Kuja Dosha" in response.text
+    assert "Guru Chandala Dosha" in response.text
+    assert "Content coming soon" in response.text
+    assert "Dignity" in response.text
+    assert "Janma Navaka" in response.text
+    assert "Anujanma Navaka" in response.text
+    assert "Trijanma Navaka" in response.text
 
 
 def test_post_with_manual_coordinates_renders_chart() -> None:

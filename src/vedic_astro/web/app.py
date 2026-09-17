@@ -20,10 +20,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
+from vedic_astro.ashtakavarga import ASHTAKAVARGA_PLANETS
 from vedic_astro.aspects import sign_aspects
 from vedic_astro.chart import build_kundali_chart
-from vedic_astro.chart_render import navamsa_layout, south_indian_layout
+from vedic_astro.chart_render import (
+    ChartCell,
+    ashtakavarga_mini_grid,
+    bhava_chalit_layout,
+    navamsa_layout,
+    south_indian_layout,
+    varga_layout,
+)
 from vedic_astro.dasha import compute_deeper_sub_periods
+from vedic_astro.divisional_charts import VARGA_REGISTRY
 from vedic_astro.geocode import PlaceMatch, resolve_utc_offset, search_places
 from vedic_astro.matching import compute_match_report
 from vedic_astro.models import BirthData, HouseSystem, KundaliChart, NavataraEntry, NodeType, Planet, Sign
@@ -179,6 +188,130 @@ def _navatara_chakra_for_chart(chart: KundaliChart) -> list[NavataraEntry]:
     return compute_navatara_chakra(moon.nakshatra.index)
 
 
+_NAVATARA_ROW_LABELS = ["Janma Navaka", "Anujanma Navaka", "Trijanma Navaka"]
+
+
+def _navatara_rows(chart: KundaliChart) -> list[dict[str, object]]:
+    """Groups the 27 Navatara Chakra entries into 3 labeled rows of 9, per
+    the user's own description - stages of life (childhood/middle life/old
+    age), not a change to the underlying Tara-category math."""
+    entries = _navatara_chakra_for_chart(chart)
+    return [
+        {"label": label, "entries": entries[i * 9 : (i + 1) * 9]}
+        for i, label in enumerate(_NAVATARA_ROW_LABELS)
+    ]
+
+
+def _sade_sati_status(cycle_start: date, cycle_end: date, today: date) -> str:
+    if today < cycle_start:
+        return "Upcoming"
+    if today >= cycle_end:
+        return "Past"
+    return "Current"
+
+
+def _sade_sati_rows(chart: KundaliChart) -> list[dict[str, object]]:
+    assert chart.saturn_transit is not None
+    today = date.today()
+    return [
+        {
+            "cycle": cycle,
+            "status": _sade_sati_status(cycle.start.date(), cycle.end.date(), today),
+        }
+        for cycle in chart.saturn_transit.sade_sati_cycles
+    ]
+
+
+def _ashtakavarga_tiles(chart: KundaliChart) -> list[dict[str, object]]:
+    """The 3x3 screenshot-style tile list for the Ashtakavarga tab: SAV +
+    the 7 planets' BAV (all computed), plus a Lagna/Ascendant tile shown as
+    a pending placeholder - see ashtakavarga.py's module docstring for why."""
+    assert chart.ashtakavarga is not None
+    natal_signs = {p.sign for p in chart.planets}
+    tiles: list[dict[str, object]] = [
+        {
+            "label": "SAV (Samudaya Ashtakavarga)",
+            "grid": ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs),
+            "pending": False,
+        }
+    ]
+    for planet in ASHTAKAVARGA_PLANETS:
+        tiles.append(
+            {
+                "label": planet.value,
+                "grid": ashtakavarga_mini_grid(chart.ashtakavarga.bav_by_planet[planet], natal_signs),
+                "pending": False,
+            }
+        )
+    tiles.append(
+        {
+            "label": "Ascendant (Lagna)",
+            "grid": None,
+            "pending": True,
+        }
+    )
+    return tiles
+
+
+_SAV_SCORE_BANDS: list[tuple[int, str, str]] = [
+    (20, "critically-weak", "Critically Weak"),
+    (25, "below-average", "Below Average"),
+    (28, "average", "Average / Neutral"),
+    (32, "strong", "Strong"),
+]
+
+
+def _sav_band(score: int) -> tuple[str, str]:
+    """(css_class, label) for a SAV/Bhava Ashtakavarga house total, per the
+    classical reading bands (Below 20 = Critically Weak, ... Above 32 =
+    Exceptionally Powerful)."""
+    for threshold, css_class, label in _SAV_SCORE_BANDS:
+        if score < threshold:
+            return css_class, label
+    return "exceptional", "Exceptionally Powerful"
+
+
+def _divisional_chart_entries(
+    chart: KundaliChart,
+    grid: list[list[ChartCell | None]],
+    navamsa_grid: list[list[ChartCell | None]],
+) -> list[dict[str, object]]:
+    """Bhava Chalit + all 23 registry entries, in order, for the Divisional
+    Charts tab's sub-tab list - held (unbuilt) charts get a None grid and
+    their held_reason, so the tab shows the full intended list."""
+    entries: list[dict[str, object]] = [
+        {"code": "bhava_chalit", "name": "Bhava Chalit", "grid": bhava_chalit_layout(chart), "held_reason": None}
+    ]
+    for spec in VARGA_REGISTRY:
+        if spec.code == "D1":
+            chart_grid: list[list[ChartCell | None]] | None = grid
+        elif spec.code == "D9":
+            chart_grid = navamsa_grid
+        elif spec.sign_fn is not None:
+            chart_grid = varga_layout(chart, spec.code)
+        else:
+            chart_grid = None
+        entries.append(
+            {
+                "code": spec.code,
+                "name": f"{spec.code} {spec.name}",
+                "grid": chart_grid,
+                "held_reason": spec.held_reason,
+            }
+        )
+    return entries
+
+
+def _bhava_ashtakavarga_rows(chart: KundaliChart) -> list[dict[str, object]]:
+    assert chart.ashtakavarga is not None
+    rows: list[dict[str, object]] = []
+    for house in range(1, 13):
+        score = chart.ashtakavarga.bhava_ashtakavarga[house]
+        css_class, label = _sav_band(score)
+        rows.append({"house": house, "score": score, "band_class": css_class, "band_label": label})
+    return rows
+
+
 def _empty_form_context() -> dict[str, object]:
     person_defaults = {
         "name": "",
@@ -213,6 +346,11 @@ def _empty_form_context() -> dict[str, object]:
         "navamsa_grid": None,
         "rashi_drishti": None,
         "navatara_chakra": None,
+        "navatara_rows": None,
+        "sade_sati_rows": None,
+        "ashtakavarga_tiles": None,
+        "bhava_ashtakavarga_rows": None,
+        "divisional_chart_entries": None,
         "current_mahadasha": None,
         "current_antardasha": None,
         "resolved_place": None,
@@ -360,11 +498,18 @@ def compute_chart(
         return _render(request, context, status_code=400)
 
     now_local = _current_local_datetime(a_location.utc_offset)
+    grid = south_indian_layout(chart_a)
+    navamsa_grid = navamsa_layout(chart_a)
     context["chart"] = chart_a
-    context["grid"] = south_indian_layout(chart_a)
-    context["navamsa_grid"] = navamsa_layout(chart_a)
+    context["grid"] = grid
+    context["navamsa_grid"] = navamsa_grid
     context["rashi_drishti"] = _rashi_drishti_rows(chart_a)
     context["navatara_chakra"] = _navatara_chakra_for_chart(chart_a)
+    context["navatara_rows"] = _navatara_rows(chart_a)
+    context["sade_sati_rows"] = _sade_sati_rows(chart_a)
+    context["ashtakavarga_tiles"] = _ashtakavarga_tiles(chart_a)
+    context["bhava_ashtakavarga_rows"] = _bhava_ashtakavarga_rows(chart_a)
+    context["divisional_chart_entries"] = _divisional_chart_entries(chart_a, grid, navamsa_grid)
     context["current_mahadasha"] = chart_a.dasha.current_mahadasha(now_local)
     context["current_antardasha"] = chart_a.dasha.current_antardasha(now_local)
     context["resolved_place"] = a_location.label
@@ -447,11 +592,18 @@ def ask_question(
         match_report = compute_match_report(chart_a, chart_b)
 
     now_local = _current_local_datetime(birth_data_a.utc_offset_hours)
+    grid = south_indian_layout(chart_a)
+    navamsa_grid = navamsa_layout(chart_a)
     context["chart"] = chart_a
-    context["grid"] = south_indian_layout(chart_a)
-    context["navamsa_grid"] = navamsa_layout(chart_a)
+    context["grid"] = grid
+    context["navamsa_grid"] = navamsa_grid
     context["rashi_drishti"] = _rashi_drishti_rows(chart_a)
     context["navatara_chakra"] = _navatara_chakra_for_chart(chart_a)
+    context["navatara_rows"] = _navatara_rows(chart_a)
+    context["sade_sati_rows"] = _sade_sati_rows(chart_a)
+    context["ashtakavarga_tiles"] = _ashtakavarga_tiles(chart_a)
+    context["bhava_ashtakavarga_rows"] = _bhava_ashtakavarga_rows(chart_a)
+    context["divisional_chart_entries"] = _divisional_chart_entries(chart_a, grid, navamsa_grid)
     context["current_mahadasha"] = chart_a.dasha.current_mahadasha(now_local)
     context["current_antardasha"] = chart_a.dasha.current_antardasha(now_local)
     context["match_report"] = match_report
