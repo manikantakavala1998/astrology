@@ -104,9 +104,8 @@ def test_post_renders_shani_dosha_yogas_tabs_and_dignity_column() -> None:
     assert "Guru Chandala Dosha" in response.text
     assert "Content coming soon" in response.text
     assert "Dignity" in response.text
-    assert "Janma Navaka" in response.text
-    assert "Anujanma Navaka" in response.text
-    assert "Trijanma Navaka" in response.text
+    assert 'id="panel-jaimini"' not in response.text
+    assert "Janma Navaka" not in response.text
 
 
 def test_post_with_manual_coordinates_renders_chart() -> None:

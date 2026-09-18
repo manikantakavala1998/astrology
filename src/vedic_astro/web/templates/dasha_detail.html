@@ -8,7 +8,7 @@
 </head>
 <body>
   <h1>Dasha sub-periods</h1>
-  <p class="subtitle">Pratyantardasha &rarr; Sookshma &rarr; Prana</p>
+  <p class="subtitle">Antardasha &rarr; Pratyantardasha &rarr; Sookshma &rarr; Prana</p>
 
   <div class="page">
 
@@ -16,38 +16,56 @@
     <div class="panel error">{{ error }}</div>
     {% else %}
     <div class="panel">
-      <h2 class="section-title">{{ antardasha_lord.value }} Antardasha - Pratyantardasha breakdown</h2>
+      <h2 class="section-title">{{ mahadasha_lord.value }} Mahadasha - full breakdown</h2>
       <p class="hint">
-        Click a Pratyantardasha row to reveal its Sookshma breakdown, and a Sookshma row to reveal
-        its Prana breakdown. Computed just for this one Antardasha branch (729 periods max), not the
-        whole chart - see the Dasha tab for the main Mahadasha/Antardasha table.
+        Click an Antardasha row to reveal its Pratyantardasha breakdown, a Pratyantardasha row for its
+        Sookshma breakdown, and a Sookshma row for its Prana breakdown. Computed just for this one
+        Mahadasha branch (6,561 Prana periods max), not the whole chart - see the Dasha tab for the
+        list of all Mahadashas.
       </p>
 
-      {% for pratyantardasha in pratyantardasha %}
+      {% for antardasha_period in antardasha %}
       <details class="dasha-detail-level">
         <summary>
-          <strong>{{ pratyantardasha.planet.value }}</strong>
-          {{ pratyantardasha.start.strftime("%Y-%m-%d") }} &rarr; {{ pratyantardasha.end.strftime("%Y-%m-%d") }}
+          <strong>{{ antardasha_period.planet.value }}</strong>
+          {{ antardasha_period.start.strftime("%d-%m-%Y") }} &rarr; {{ antardasha_period.end.strftime("%d-%m-%Y") }}
         </summary>
         <table>
-          <thead><tr><th>Sookshma</th><th>Start</th><th>End</th></tr></thead>
+          <thead><tr><th>Pratyantardasha</th><th>Start</th><th>End</th></tr></thead>
           <tbody>
-            {% for sookshma in pratyantardasha.sub_periods %}
+            {% for pratyantardasha in antardasha_period.sub_periods %}
             <tr>
               <td colspan="3" style="padding:0;">
                 <details class="dasha-detail-level">
                   <summary>
-                    {{ sookshma.planet.value }}
-                    {{ sookshma.start.strftime("%Y-%m-%d") }} &rarr; {{ sookshma.end.strftime("%Y-%m-%d") }}
+                    {{ pratyantardasha.planet.value }}
+                    {{ pratyantardasha.start.strftime("%d-%m-%Y") }} &rarr; {{ pratyantardasha.end.strftime("%d-%m-%Y") }}
                   </summary>
                   <table>
-                    <thead><tr><th>Prana</th><th>Start</th><th>End</th></tr></thead>
+                    <thead><tr><th>Sookshma</th><th>Start</th><th>End</th></tr></thead>
                     <tbody>
-                      {% for prana in sookshma.sub_periods %}
+                      {% for sookshma in pratyantardasha.sub_periods %}
                       <tr>
-                        <td>{{ prana.planet.value }}</td>
-                        <td>{{ prana.start.strftime("%Y-%m-%d") }}</td>
-                        <td>{{ prana.end.strftime("%Y-%m-%d") }}</td>
+                        <td colspan="3" style="padding:0;">
+                          <details class="dasha-detail-level">
+                            <summary>
+                              {{ sookshma.planet.value }}
+                              {{ sookshma.start.strftime("%d-%m-%Y") }} &rarr; {{ sookshma.end.strftime("%d-%m-%Y") }}
+                            </summary>
+                            <table>
+                              <thead><tr><th>Prana</th><th>Start</th><th>End</th></tr></thead>
+                              <tbody>
+                                {% for prana in sookshma.sub_periods %}
+                                <tr>
+                                  <td>{{ prana.planet.value }}</td>
+                                  <td>{{ prana.start.strftime("%d-%m-%Y") }}</td>
+                                  <td>{{ prana.end.strftime("%d-%m-%Y") }}</td>
+                                </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                        </td>
                       </tr>
                       {% endfor %}
                     </tbody>

@@ -11,7 +11,7 @@ with the exact same rule. Only Mahadasha+Antardasha are computed eagerly for
 a whole chart (9x9 = 81 periods, reasonable); a full 5-level tree would be
 9^5 = 59,049 Prana-level periods, impractical to compute/render at once.
 Deeper levels (compute_deeper_sub_periods) are therefore computed on demand,
-scoped to one specific Antardasha branch at a time - see web/app.py's
+scoped to one specific Mahadasha branch at a time - see web/app.py's
 /dasha-detail route.
 """
 

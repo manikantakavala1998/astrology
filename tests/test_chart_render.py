@@ -69,7 +69,7 @@ def test_south_indian_layout_places_planets_in_correct_sign_cell() -> None:
     sun_cell = next(
         cell for row in grid for cell in row if cell is not None and cell.sign == sun.sign
     )
-    assert "Su" in sun_cell.planet_labels
+    assert "Su" in [label.code for label in sun_cell.planet_labels]
 
 
 def test_navamsa_layout_marks_d9_ascendant_as_house_one() -> None:
@@ -92,7 +92,7 @@ def test_navamsa_layout_places_planets_by_d9_sign_not_d1_sign() -> None:
     sun_cell = next(
         cell for row in grid for cell in row if cell is not None and cell.sign == sun.navamsa_sign
     )
-    assert "Su" in sun_cell.planet_labels
+    assert "Su" in [label.code for label in sun_cell.planet_labels]
 
 
 def test_varga_layout_matches_south_indian_layout_for_d1() -> None:
@@ -119,7 +119,7 @@ def test_varga_layout_places_planets_by_their_own_varga_sign() -> None:
     sun_cell = next(
         cell for row in grid for cell in row if cell is not None and cell.sign == sun_d3_sign
     )
-    assert "Su" in sun_cell.planet_labels
+    assert "Su" in [label.code for label in sun_cell.planet_labels]
 
 
 def test_bhava_chalit_layout_places_planets_by_d1_sign() -> None:
@@ -129,7 +129,7 @@ def test_bhava_chalit_layout_places_planets_by_d1_sign() -> None:
     sun_cell = next(
         cell for row in grid for cell in row if cell is not None and cell.sign == sun.sign
     )
-    assert "Su" in sun_cell.planet_labels
+    assert "Su" in [label.code for label in sun_cell.planet_labels]
 
 
 def test_bhava_chalit_layout_has_exactly_one_house_one_cell() -> None:
@@ -149,6 +149,29 @@ def test_bhava_chalit_layout_covers_all_twelve_houses_exactly_once() -> None:
     grid = bhava_chalit_layout(chart)
     houses = sorted(cell.house for row in grid for cell in row if cell is not None)
     assert houses == list(range(1, 13))
+
+
+def test_planet_labels_carry_dignity_suffix_and_color_class() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = south_indian_layout(chart)
+    saturn = next(p for p in chart.planets if p.planet.value == "Saturn")
+    saturn_cell = next(
+        cell for row in grid for cell in row if cell is not None and cell.sign == saturn.sign
+    )
+    saturn_label = next(label for label in saturn_cell.planet_labels if label.code == "Sa")
+    assert saturn_label.color_class == "planet-color-saturn"
+    # Saturn is Own Sign in this fixture (Capricorn), not Exalted/Debilitated.
+    assert saturn_label.dignity_suffix == ""
+
+
+def test_chart_cells_carry_direction_and_element() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    grid = south_indian_layout(chart)
+    aries_cell = next(
+        cell for row in grid for cell in row if cell is not None and cell.sign == Sign.ARIES
+    )
+    assert aries_cell.direction == "E"
+    assert aries_cell.element_symbol
 
 
 def test_ashtakavarga_mini_grid_shows_bindus_and_natal_occupation() -> None:

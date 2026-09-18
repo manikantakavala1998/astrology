@@ -35,9 +35,10 @@ from vedic_astro.dasha import compute_deeper_sub_periods
 from vedic_astro.divisional_charts import VARGA_REGISTRY
 from vedic_astro.geocode import PlaceMatch, resolve_utc_offset, search_places
 from vedic_astro.matching import compute_match_report
-from vedic_astro.models import BirthData, HouseSystem, KundaliChart, NavataraEntry, NodeType, Planet, Sign
-from vedic_astro.nakshatra import compute_navatara_chakra
+from vedic_astro.models import SIGNS_IN_ORDER, BirthData, HouseSystem, KundaliChart, NodeType, Planet, Sign
 from vedic_astro.rag.qa import answer_question
+from vedic_astro.rashi_bhava import RASHI_LORD
+from vedic_astro.sign_attributes import SIGN_DIRECTION, SIGN_ELEMENT_NAME, SIGN_ELEMENT_SYMBOL
 
 _BASE_DIR = Path(__file__).resolve().parent
 
@@ -47,6 +48,16 @@ templates = Jinja2Templates(directory=_BASE_DIR / "templates")
 
 _AYANAMSHA_CHOICES = ["lahiri", "raman", "krishnamurti"]
 _HOUSE_SYSTEM_CHOICES = [hs.value for hs in HouseSystem]
+
+templates.env.globals["sign_attribute_reference"] = [
+    {
+        "sign": sign.value,
+        "direction": SIGN_DIRECTION[sign],
+        "element_symbol": SIGN_ELEMENT_SYMBOL[sign],
+        "element_name": SIGN_ELEMENT_NAME[sign],
+    }
+    for sign in SIGNS_IN_ORDER
+]
 
 
 def _current_local_datetime(utc_offset_hours: float) -> datetime:
@@ -181,27 +192,6 @@ def _rashi_drishti_rows(chart: KundaliChart) -> list[dict[str, object]]:
     return rows
 
 
-def _navatara_chakra_for_chart(chart: KundaliChart) -> list[NavataraEntry]:
-    """Navatara Chakra (Tools tab): all 27 nakshatras classified by their Tara
-    relationship to this chart's own Moon (Chandra) nakshatra."""
-    moon = next(p for p in chart.planets if p.planet == Planet.MOON)
-    return compute_navatara_chakra(moon.nakshatra.index)
-
-
-_NAVATARA_ROW_LABELS = ["Janma Navaka", "Anujanma Navaka", "Trijanma Navaka"]
-
-
-def _navatara_rows(chart: KundaliChart) -> list[dict[str, object]]:
-    """Groups the 27 Navatara Chakra entries into 3 labeled rows of 9, per
-    the user's own description - stages of life (childhood/middle life/old
-    age), not a change to the underlying Tara-category math."""
-    entries = _navatara_chakra_for_chart(chart)
-    return [
-        {"label": label, "entries": entries[i * 9 : (i + 1) * 9]}
-        for i, label in enumerate(_NAVATARA_ROW_LABELS)
-    ]
-
-
 def _sade_sati_status(cycle_start: date, cycle_end: date, today: date) -> str:
     if today < cycle_start:
         return "Upcoming"
@@ -220,6 +210,17 @@ def _sade_sati_rows(chart: KundaliChart) -> list[dict[str, object]]:
         }
         for cycle in chart.saturn_transit.sade_sati_cycles
     ]
+
+
+def _sign_lords_for_houses(chart: KundaliChart, houses: list[int]) -> list[dict[str, object]]:
+    """For each house number (whole-sign, counted from the Ascendant), the
+    sign occupying it and that sign's classical lord."""
+    asc_index = SIGNS_IN_ORDER.index(chart.ascendant.sign)
+    rows: list[dict[str, object]] = []
+    for house in houses:
+        sign = SIGNS_IN_ORDER[(asc_index + house - 1) % 12]
+        rows.append({"house": house, "sign": sign.value, "lord": RASHI_LORD[sign].value})
+    return rows
 
 
 def _ashtakavarga_tiles(chart: KundaliChart) -> list[dict[str, object]]:
@@ -345,14 +346,14 @@ def _empty_form_context() -> dict[str, object]:
         "grid": None,
         "navamsa_grid": None,
         "rashi_drishti": None,
-        "navatara_chakra": None,
-        "navatara_rows": None,
         "sade_sati_rows": None,
         "ashtakavarga_tiles": None,
         "bhava_ashtakavarga_rows": None,
         "divisional_chart_entries": None,
         "current_mahadasha": None,
         "current_antardasha": None,
+        "kendra_lords": None,
+        "trikona_lords": None,
         "resolved_place": None,
         "resolved_place_b": None,
         "candidates": None,
@@ -504,8 +505,6 @@ def compute_chart(
     context["grid"] = grid
     context["navamsa_grid"] = navamsa_grid
     context["rashi_drishti"] = _rashi_drishti_rows(chart_a)
-    context["navatara_chakra"] = _navatara_chakra_for_chart(chart_a)
-    context["navatara_rows"] = _navatara_rows(chart_a)
     context["sade_sati_rows"] = _sade_sati_rows(chart_a)
     context["ashtakavarga_tiles"] = _ashtakavarga_tiles(chart_a)
     context["bhava_ashtakavarga_rows"] = _bhava_ashtakavarga_rows(chart_a)
@@ -513,6 +512,8 @@ def compute_chart(
     context["current_mahadasha"] = chart_a.dasha.current_mahadasha(now_local)
     context["current_antardasha"] = chart_a.dasha.current_antardasha(now_local)
     context["resolved_place"] = a_location.label
+    context["kendra_lords"] = _sign_lords_for_houses(chart_a, [1, 4, 7])
+    context["trikona_lords"] = _sign_lords_for_houses(chart_a, [1, 5, 9])
 
     if want_match and b_location is not None:
         assert b_date is not None and b_time is not None
@@ -598,14 +599,14 @@ def ask_question(
     context["grid"] = grid
     context["navamsa_grid"] = navamsa_grid
     context["rashi_drishti"] = _rashi_drishti_rows(chart_a)
-    context["navatara_chakra"] = _navatara_chakra_for_chart(chart_a)
-    context["navatara_rows"] = _navatara_rows(chart_a)
     context["sade_sati_rows"] = _sade_sati_rows(chart_a)
     context["ashtakavarga_tiles"] = _ashtakavarga_tiles(chart_a)
     context["bhava_ashtakavarga_rows"] = _bhava_ashtakavarga_rows(chart_a)
     context["divisional_chart_entries"] = _divisional_chart_entries(chart_a, grid, navamsa_grid)
     context["current_mahadasha"] = chart_a.dasha.current_mahadasha(now_local)
     context["current_antardasha"] = chart_a.dasha.current_antardasha(now_local)
+    context["kendra_lords"] = _sign_lords_for_houses(chart_a, [1, 4, 7])
+    context["trikona_lords"] = _sign_lords_for_houses(chart_a, [1, 5, 9])
     context["match_report"] = match_report
     context["question"] = question
 
@@ -633,9 +634,9 @@ def dasha_detail(
     start: str = Form(""),
     years: str = Form(""),
 ) -> HTMLResponse:
-    """Computes Pratyantardasha -> Sookshma -> Prana for one specific
-    Antardasha branch, on demand - see dasha.py's module docstring for why
-    this isn't computed eagerly for the whole chart."""
+    """Computes Antardasha -> Pratyantardasha -> Sookshma -> Prana for one
+    specific Mahadasha branch, on demand - see dasha.py's module docstring
+    for why this isn't computed eagerly for the whole chart."""
     try:
         lord_planet = Planet(lord)
         start_dt = datetime.fromisoformat(start)
@@ -644,18 +645,18 @@ def dasha_detail(
         return templates.TemplateResponse(
             request,
             "dasha_detail.html",
-            {"error": f"Could not compute sub-periods: {exc}", "pratyantardasha": None},
+            {"error": f"Could not compute sub-periods: {exc}", "antardasha": None},
             status_code=400,
         )
 
-    pratyantardasha = compute_deeper_sub_periods(lord_planet, start_dt, years_float, levels=3)
+    antardasha = compute_deeper_sub_periods(lord_planet, start_dt, years_float, levels=4)
     return templates.TemplateResponse(
         request,
         "dasha_detail.html",
         {
             "error": None,
-            "antardasha_lord": lord_planet,
-            "antardasha_start": start_dt,
-            "pratyantardasha": pratyantardasha,
+            "mahadasha_lord": lord_planet,
+            "mahadasha_start": start_dt,
+            "antardasha": antardasha,
         },
     )

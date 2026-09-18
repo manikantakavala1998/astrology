@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from vedic_astro.models import SIGNS_IN_ORDER, KundaliChart, PlanetPosition, Sign
+from vedic_astro.models import SIGNS_IN_ORDER, KundaliChart, Planet, PlanetDignity, PlanetPosition, Sign
 from vedic_astro.rashi_bhava import house_from_cusps, whole_sign_house
+from vedic_astro.sign_attributes import SIGN_DIRECTION, SIGN_ELEMENT_SYMBOL
 from vedic_astro.varga import navamsa_sign
 
 # Fixed South Indian layout: each cell's sign never changes chart to chart -
@@ -23,13 +24,41 @@ SOUTH_INDIAN_GRID: list[list[Sign | None]] = [
     [Sign.SAGITTARIUS, Sign.SCORPIO, Sign.LIBRA, Sign.VIRGO],
 ]
 
+# CSS class carrying each planet's fixed display color, per the user's exact spec.
+PLANET_COLOR_CLASS: dict[Planet, str] = {
+    Planet.SUN: "planet-color-sun",
+    Planet.MOON: "planet-color-moon",
+    Planet.MARS: "planet-color-mars",
+    Planet.MERCURY: "planet-color-mercury",
+    Planet.JUPITER: "planet-color-jupiter",
+    Planet.VENUS: "planet-color-venus",
+    Planet.SATURN: "planet-color-saturn",
+    Planet.RAHU: "planet-color-rahu",
+    Planet.KETU: "planet-color-ketu",
+}
+
+_DIGNITY_SUFFIX: dict[PlanetDignity, str] = {
+    PlanetDignity.EXALTED: "E",
+    PlanetDignity.DEBILITATED: "D",
+}
+
+
+@dataclass
+class PlanetLabel:
+    code: str
+    retrograde: bool
+    dignity_suffix: str  # "" | "E" | "D"
+    color_class: str
+
 
 @dataclass
 class ChartCell:
     sign: Sign
     house: int
     is_ascendant: bool
-    planet_labels: list[str] = field(default_factory=list)
+    planet_labels: list[PlanetLabel] = field(default_factory=list)
+    direction: str = ""
+    element_symbol: str = ""
 
 
 @dataclass
@@ -39,16 +68,33 @@ class AshtakavargaCell:
     is_natal_occupied: bool
 
 
-def _planet_label(planet_position: PlanetPosition) -> str:
-    short_code = planet_position.planet.value[:2]
-    return f"{short_code}(R)" if planet_position.retrograde else short_code
+def _build_planet_label(planet_position: PlanetPosition) -> PlanetLabel:
+    return PlanetLabel(
+        code=planet_position.planet.value[:2],
+        retrograde=planet_position.retrograde,
+        dignity_suffix=_DIGNITY_SUFFIX.get(planet_position.dignity, ""),
+        color_class=PLANET_COLOR_CLASS[planet_position.planet],
+    )
+
+
+def _build_chart_cell(
+    sign: Sign, house: int, is_ascendant: bool, planets_by_sign: dict[Sign, list[PlanetLabel]]
+) -> ChartCell:
+    return ChartCell(
+        sign=sign,
+        house=house,
+        is_ascendant=is_ascendant,
+        planet_labels=planets_by_sign.get(sign, []),
+        direction=SIGN_DIRECTION[sign],
+        element_symbol=SIGN_ELEMENT_SYMBOL[sign],
+    )
 
 
 def south_indian_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
-    planets_by_sign: dict[Sign, list[str]] = {}
+    planets_by_sign: dict[Sign, list[PlanetLabel]] = {}
     for planet_position in chart.planets:
         planets_by_sign.setdefault(planet_position.sign, []).append(
-            _planet_label(planet_position)
+            _build_planet_label(planet_position)
         )
 
     grid: list[list[ChartCell | None]] = []
@@ -59,11 +105,11 @@ def south_indian_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
                 rendered_row.append(None)
                 continue
             rendered_row.append(
-                ChartCell(
+                _build_chart_cell(
                     sign=sign,
                     house=whole_sign_house(sign, chart.ascendant.sign),
                     is_ascendant=(sign == chart.ascendant.sign),
-                    planet_labels=planets_by_sign.get(sign, []),
+                    planets_by_sign=planets_by_sign,
                 )
             )
         grid.append(rendered_row)
@@ -78,12 +124,12 @@ def navamsa_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
     """
     navamsa_ascendant_sign = navamsa_sign(chart.ascendant.longitude)
 
-    planets_by_sign: dict[Sign, list[str]] = {}
+    planets_by_sign: dict[Sign, list[PlanetLabel]] = {}
     for planet_position in chart.planets:
         if planet_position.navamsa_sign is None:
             continue
         planets_by_sign.setdefault(planet_position.navamsa_sign, []).append(
-            _planet_label(planet_position)
+            _build_planet_label(planet_position)
         )
 
     grid: list[list[ChartCell | None]] = []
@@ -94,11 +140,11 @@ def navamsa_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
                 rendered_row.append(None)
                 continue
             rendered_row.append(
-                ChartCell(
+                _build_chart_cell(
                     sign=sign,
                     house=whole_sign_house(sign, navamsa_ascendant_sign),
                     is_ascendant=(sign == navamsa_ascendant_sign),
-                    planet_labels=planets_by_sign.get(sign, []),
+                    planets_by_sign=planets_by_sign,
                 )
             )
         grid.append(rendered_row)
@@ -115,12 +161,12 @@ def varga_layout(chart: KundaliChart, code: str) -> list[list[ChartCell | None]]
     """
     varga_ascendant_sign = chart.ascendant.varga_signs[code]
 
-    planets_by_sign: dict[Sign, list[str]] = {}
+    planets_by_sign: dict[Sign, list[PlanetLabel]] = {}
     for planet_position in chart.planets:
         sign = planet_position.varga_signs.get(code)
         if sign is None:
             continue
-        planets_by_sign.setdefault(sign, []).append(_planet_label(planet_position))
+        planets_by_sign.setdefault(sign, []).append(_build_planet_label(planet_position))
 
     grid: list[list[ChartCell | None]] = []
     for row in SOUTH_INDIAN_GRID:
@@ -130,11 +176,11 @@ def varga_layout(chart: KundaliChart, code: str) -> list[list[ChartCell | None]]
                 rendered_row.append(None)
                 continue
             rendered_row.append(
-                ChartCell(
+                _build_chart_cell(
                     sign=sign,
                     house=whole_sign_house(sign, varga_ascendant_sign),
                     is_ascendant=(sign == varga_ascendant_sign),
-                    planet_labels=planets_by_sign.get(sign, []),
+                    planets_by_sign=planets_by_sign,
                 )
             )
         grid.append(rendered_row)
@@ -148,10 +194,10 @@ def bhava_chalit_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
     among the Bhava Chalit (Placidus) cusps, instead of whole-sign counting
     from the Ascendant.
     """
-    planets_by_sign: dict[Sign, list[str]] = {}
+    planets_by_sign: dict[Sign, list[PlanetLabel]] = {}
     for planet_position in chart.planets:
         planets_by_sign.setdefault(planet_position.sign, []).append(
-            _planet_label(planet_position)
+            _build_planet_label(planet_position)
         )
 
     grid: list[list[ChartCell | None]] = []
@@ -165,11 +211,11 @@ def bhava_chalit_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
             midpoint_longitude = sign_index * 30 + 15
             house = house_from_cusps(midpoint_longitude, chart.bhava_chalit_cusps)
             rendered_row.append(
-                ChartCell(
+                _build_chart_cell(
                     sign=sign,
                     house=house,
                     is_ascendant=(house == 1),
-                    planet_labels=planets_by_sign.get(sign, []),
+                    planets_by_sign=planets_by_sign,
                 )
             )
         grid.append(rendered_row)
