@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from vedic_astro.ashtakavarga import compute_ashtakavarga
 from vedic_astro.aspects import compute_aspects
+from vedic_astro.bhava_bala import compute_bhava_bala
 from vedic_astro.dasha import compute_vimshottari_dasha
 from vedic_astro.dignity import planet_dignity
 from vedic_astro.divisional_charts import VARGA_REGISTRY
-from vedic_astro.doshas import compute_saturn_afflictions, compute_shani_dosha
+from vedic_astro.doshas import compute_punarphoo_dosha, compute_saturn_afflictions, compute_shani_dosha
 from vedic_astro.ephemeris import ascendant_longitude, house_cusps, planet_positions
 from vedic_astro.general_doshas import (
     compute_guru_chandala_dosha,
@@ -26,7 +27,9 @@ from vedic_astro.rashi_bhava import (
     whole_sign_house,
 )
 from vedic_astro.saturn_transit import compute_saturn_transit_timeline
+from vedic_astro.shadbala import compute_shadbala
 from vedic_astro.varga import hora_lord, hora_sign, navamsa_sign
+from vedic_astro.vimshopaka_bala import compute_vimshopaka_bala
 
 
 def _built_varga_signs(longitude: float) -> dict[str, Sign]:
@@ -80,6 +83,8 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
                 house=house,
                 nakshatra=nakshatra_for_longitude(raw.longitude),
                 retrograde=raw.retrograde,
+                ecliptic_latitude=raw.latitude,
+                speed_longitude=raw.speed_longitude,
                 navamsa_sign=navamsa_sign(raw.longitude),
                 hora_sign=hora_sign(raw.longitude),
                 hora_lord=hora_lord(raw.longitude),
@@ -101,6 +106,11 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
 
     aspects = compute_aspects(planets)
     moon_sign = next(p.sign for p in planets if p.planet == Planet.MOON)
+    moon_is_waxing = panchanga.paksha == "Shukla"
+
+    shadbala = compute_shadbala(planets, ascendant.sign, bhava_chalit_cusps, aspects, birth_data, moon_is_waxing)
+    vimshopaka_bala = compute_vimshopaka_bala(planets)
+    bhava_bala = compute_bhava_bala(planets, bhava_chalit_cusps, ascendant.sign, shadbala, moon_is_waxing)
 
     return KundaliChart(
         birth_data=birth_data,
@@ -119,4 +129,8 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
         kalasarpa_dosha=compute_kalasarpa_dosha(planets),
         kuja_dosha=compute_kuja_dosha(planets, ascendant.sign),
         guru_chandala_dosha=compute_guru_chandala_dosha(planets, aspects),
+        punarphoo_dosha=compute_punarphoo_dosha(planets, aspects),
+        shadbala=shadbala,
+        vimshopaka_bala=vimshopaka_bala,
+        bhava_bala=bhava_bala,
     )

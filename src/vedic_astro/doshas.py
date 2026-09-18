@@ -1,8 +1,8 @@
 """Standalone, single-person dosha rules - no aggregate Doshas/Yogas tab yet
 (that stays deferred, same as the Yoga tab). Saturn-specific doshas live
-here (natal Shani Dosha/Neech Dosha, plus the 3 Saturn-conjunction
-doshas); Kalasarpa/Kuja/Guru Chandala live in general_doshas.py; Mangal
-Dosha lives in matching.py since it's specific to the two-person
+here (natal Shani Dosha/Neech Dosha, the 3 Saturn-conjunction doshas, and
+Punarphoo Dosha); Kalasarpa/Kuja/Guru Chandala live in general_doshas.py;
+Mangal Dosha lives in matching.py since it's specific to the two-person
 Ashtakoot marriage-matching context.
 """
 
@@ -12,6 +12,7 @@ from vedic_astro.models import (
     Planet,
     PlanetAspect,
     PlanetPosition,
+    PunarphooDoshaResult,
     SaturnAfflictionDoshas,
     SaturnPairDosha,
     ShaniDoshaResult,
@@ -141,4 +142,83 @@ def compute_saturn_afflictions(
                 "Shani Rahu Dosha (Shapit Yoga)", Planet.SATURN, Planet.RAHU, rahu_has, rahu_conj
             ),
         ),
+    )
+
+
+def _punarphoo_formation_reasons(
+    conjunction_or_aspect: bool,
+    is_conjunction: bool,
+    moon_in_saturn_nakshatra: bool,
+    saturn_in_moon_nakshatra: bool,
+) -> list[str]:
+    reasons: list[str] = []
+    if conjunction_or_aspect:
+        reasons.append(
+            "Saturn and the Moon share the same house (conjunction)"
+            if is_conjunction
+            else "Saturn aspects the Moon (3rd/7th/10th)"
+        )
+    if moon_in_saturn_nakshatra:
+        reasons.append("the Moon is in a Nakshatra ruled by Saturn")
+    if saturn_in_moon_nakshatra:
+        reasons.append("Saturn is in a Nakshatra ruled by the Moon")
+    return reasons
+
+
+def compute_punarphoo_dosha(
+    planets: list[PlanetPosition], aspects: list[PlanetAspect]
+) -> PunarphooDoshaResult:
+    """Punarphoo (Punarapu) Dosha: forms when Saturn and the Moon are
+    linked by conjunction, mutual/special aspect (Saturn's 3rd/7th/10th -
+    reuses chart.aspects, the same Graha Drishti already computed for the
+    Aspects tab), or a mutual Nakshatra-lordship link. Cancelled (Punarphoo
+    Bhanga) when the Sun conjoins both Saturn and the Moon, or when either
+    is in a Sun-ruled Nakshatra."""
+    moon = next(p for p in planets if p.planet == Planet.MOON)
+    saturn = next(p for p in planets if p.planet == Planet.SATURN)
+    sun = next(p for p in planets if p.planet == Planet.SUN)
+
+    conjunction_or_aspect, is_conjunction = planets_conjunct_or_aspecting(
+        Planet.SATURN, Planet.MOON, planets, aspects
+    )
+    moon_in_saturn_nakshatra = moon.nakshatra.lord == Planet.SATURN
+    saturn_in_moon_nakshatra = saturn.nakshatra.lord == Planet.MOON
+    has_dosha = conjunction_or_aspect or moon_in_saturn_nakshatra or saturn_in_moon_nakshatra
+
+    cancelled_by_conjunction = sun.house == moon.house and sun.house == saturn.house
+    cancelled_by_nakshatra = moon.nakshatra.lord == Planet.SUN or saturn.nakshatra.lord == Planet.SUN
+    is_cancelled = has_dosha and (cancelled_by_conjunction or cancelled_by_nakshatra)
+
+    formation_reasons = _punarphoo_formation_reasons(
+        conjunction_or_aspect, is_conjunction, moon_in_saturn_nakshatra, saturn_in_moon_nakshatra
+    )
+
+    if not has_dosha:
+        reason = (
+            "No conjunction, mutual aspect, or Nakshatra link between Saturn and the Moon - "
+            "no Punarphoo Dosha."
+        )
+    elif is_cancelled:
+        cancel_bits = []
+        if cancelled_by_conjunction:
+            cancel_bits.append("the Sun conjoins both Saturn and the Moon")
+        if cancelled_by_nakshatra:
+            cancel_bits.append("Saturn or the Moon is in a Nakshatra ruled by the Sun")
+        reason = (
+            f"Punarphoo Dosha forms ({'; '.join(formation_reasons)}), but is cancelled "
+            f"(Punarphoo Bhanga) because {' and '.join(cancel_bits)}."
+        )
+    else:
+        reason = f"Punarphoo Dosha applies: {'; '.join(formation_reasons)}."
+
+    return PunarphooDoshaResult(
+        has_dosha=has_dosha,
+        is_cancelled=is_cancelled,
+        conjunction_or_aspect=conjunction_or_aspect,
+        is_conjunction=is_conjunction,
+        moon_in_saturn_nakshatra=moon_in_saturn_nakshatra,
+        saturn_in_moon_nakshatra=saturn_in_moon_nakshatra,
+        cancelled_by_conjunction=cancelled_by_conjunction,
+        cancelled_by_nakshatra=cancelled_by_nakshatra,
+        reason=reason,
     )

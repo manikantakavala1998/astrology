@@ -285,6 +285,7 @@
       <input type="radio" name="main-tabs" id="tab-ashtakavarga" class="tab-radio">
       <input type="radio" name="main-tabs" id="tab-shani" class="tab-radio">
       <input type="radio" name="main-tabs" id="tab-dosha" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-balas" class="tab-radio">
       <input type="radio" name="main-tabs" id="tab-panchanga" class="tab-radio">
       {% if match_report %}<input type="radio" name="main-tabs" id="tab-compat" class="tab-radio">{% endif %}
       <input type="radio" name="main-tabs" id="tab-tools" class="tab-radio">
@@ -299,6 +300,7 @@
         <label for="tab-ashtakavarga">Ashtakavarga</label>
         <label for="tab-shani">Shani</label>
         <label for="tab-dosha">Dosha</label>
+        <label for="tab-balas">Balas</label>
         <label for="tab-panchanga">Panchanga</label>
         {% if match_report %}<label for="tab-compat">Compatibility</label>{% endif %}
         <label for="tab-tools">Tools</label>
@@ -501,6 +503,7 @@
           </table>
         </div>
 
+        {# Rashi Drishti (Sign-to-Sign Aspects) panel - commented out per request, not wanted in the UI.
         <div class="panel">
           <h2 class="section-title">&#128279; Rashi Drishti (Sign-to-Sign Aspects)</h2>
           <p class="hint">
@@ -525,6 +528,7 @@
             </tbody>
           </table>
         </div>
+        #}
       </div>
 
       <div class="tab-panel" id="panel-yogas">
@@ -617,9 +621,10 @@
                     {% if cell is none %}
                     <div class="mini-chart-cell blank"></div>
                     {% else %}
-                    <div class="mini-chart-cell bindus-{{ cell.bindus }} {% if cell.is_natal_occupied %}natal-occupied{% endif %}">
+                    <div class="mini-chart-cell {% if cell.is_natal_occupied %}natal-occupied{% endif %}"
+                         title="{{ cell.sign.value }}: {{ cell.bindus }} bindus - {{ cell.band_label }}">
                       <span class="cell-sign">{{ cell.sign.value[:3] }}</span>
-                      <span class="cell-bindus">{{ cell.bindus }}</span>
+                      <span class="cell-bindus sav-band-{{ cell.band_class }}">{{ cell.bindus }}</span>
                     </div>
                     {% endif %}
                   {% endfor %}
@@ -639,13 +644,13 @@
           </p>
           <div class="bhava-bar-chart">
             {% for row in bhava_ashtakavarga_rows %}
-            <div class="bhava-bar-col" title="House {{ row.house }}: {{ row.score }} - {{ row.band_label }}">
-              <span class="bhava-bar-value">{{ row.score }}</span>
+            <div class="bhava-bar-row" title="House {{ row.house }}: {{ row.score }} - {{ row.band_label }}">
+              <span class="bhava-bar-axis">H{{ row.house }}</span>
               <div class="bhava-bar-track">
                 <div class="bhava-bar-fill sav-band-{{ row.band_class }}"
-                     style="height: {{ (row.score / 56 * 100) | round(1) }}%;"></div>
+                     style="width: {{ (row.score / 56 * 100) | round(1) }}%;"></div>
               </div>
-              <span class="bhava-bar-axis">H{{ row.house }}</span>
+              <span class="bhava-bar-value">{{ row.score }}</span>
             </div>
             {% endfor %}
           </div>
@@ -862,6 +867,164 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#127765; Punarphoo Dosha (Punarapu)</h2>
+          <p class="hint">
+            Forms when Saturn and the Moon are linked by conjunction, mutual aspect (Saturn's 3rd/7th/10th),
+            or a mutual Nakshatra-lordship connection. Cancelled (Punarphoo Bhanga) when the Sun conjoins
+            both Saturn and the Moon, or when either is in a Nakshatra ruled by the Sun.
+          </p>
+          <table>
+            <tbody>
+              <tr>
+                <th>Result</th>
+                <td class="{% if chart.punarphoo_dosha.has_dosha and not chart.punarphoo_dosha.is_cancelled %}dosha-row{% endif %}">
+                  {{ chart.punarphoo_dosha.reason }}
+                </td>
+              </tr>
+              <tr>
+                <th>Conjunction / aspect link</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.conjunction_or_aspect else "No" }}</td>
+              </tr>
+              <tr>
+                <th>Moon in a Saturn-ruled Nakshatra</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.moon_in_saturn_nakshatra else "No" }}</td>
+              </tr>
+              <tr>
+                <th>Saturn in a Moon-ruled Nakshatra</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.saturn_in_moon_nakshatra else "No" }}</td>
+              </tr>
+              {% if chart.punarphoo_dosha.has_dosha %}
+              <tr>
+                <th>Cancelled (Punarphoo Bhanga)</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.is_cancelled else "No" }}</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-balas">
+        <div class="panel">
+          <h2 class="section-title">&#9878;&#65039; Balas (Classical Strength Scores)</h2>
+          <div class="subtab-group">
+            <input type="radio" name="balas-subtabs" id="subtab-balas-sadbala" class="subtab-radio" checked>
+            <label for="subtab-balas-sadbala" class="subtab-label">Sadbala</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                The six-fold classical planetary strength, in Rupas (60 Virupas = 1 Rupa). Masa Bala,
+                Varsha Bala, and Yuddha Bala are not shown - their exact classical formulas weren't
+                confirmed against a reliable source, so nothing is guessed here. Chesta Bala uses a
+                simplified 4-state reading (retrograde / stationary / slower or faster than mean motion)
+                rather than the full classical 8-state scale, for the same reason.
+              </p>
+              <table class="compact-table wide">
+                <thead>
+                  <tr>
+                    <th>Planet</th><th>Sthana</th><th>Dig</th><th>Kala</th><th>Chesta</th>
+                    <th>Naisargika</th><th>Drik</th><th>Total (Rupas)</th><th>Required</th>
+                    <th>Status</th><th>Ishta</th><th>Kashta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in shadbala_rows %}
+                  <tr>
+                    <td>{{ row.planet }}</td>
+                    <td>{{ row.sthana }}</td>
+                    <td>{{ row.dig }}</td>
+                    <td>{{ row.kala }}</td>
+                    <td>{{ row.chesta }}</td>
+                    <td>{{ row.naisargika }}</td>
+                    <td>{{ row.drik }}</td>
+                    <td><strong>{{ row.total_rupas }}</strong></td>
+                    <td>{{ row.required_rupas }}</td>
+                    <td class="{% if row.meets %}sav-band-strong{% else %}sav-band-below-average{% endif %}">
+                      {{ "Strong Enough" if row.meets else "Below Required" }}
+                    </td>
+                    <td>{{ row.ishta_phala }}</td>
+                    <td>{{ row.kashta_phala }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <input type="radio" name="balas-subtabs" id="subtab-balas-vimshopaka" class="subtab-radio">
+            <label for="subtab-balas-vimshopaka" class="subtab-label">Vimshopaka Bala</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                A 20-point divisional-chart strength score. Shown at the Shadvarga (6-chart) and Saptavarga
+                (7-chart) levels, both fully computable from this app's built divisional charts.
+              </p>
+              <table class="compact-table wide">
+                <thead>
+                  <tr>
+                    <th>Planet</th><th>Shadvarga</th><th>Reading</th><th>Saptavarga</th><th>Reading</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in vimshopaka_rows %}
+                  <tr>
+                    <td>{{ row.planet }}</td>
+                    <td>{{ row.shadvarga_score }} / 20</td>
+                    <td>{{ row.shadvarga_band }}</td>
+                    <td>{{ row.saptavarga_score }} / 20</td>
+                    <td>{{ row.saptavarga_band }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div class="held-chart-notice">
+                <p class="held-chart-title">&#128274; Dashavarga and Shodashavarga not shown on purpose</p>
+                <p class="hint pending-note">
+                  Both need divisional charts this app hasn't built yet (D16 and D60 for Dashavarga; also
+                  D4, D20, D24, D27, D40, and D45 for Shodashavarga) - see the Divisional Charts tab for
+                  why those are held.
+                </p>
+              </div>
+            </div>
+
+            <input type="radio" name="balas-subtabs" id="subtab-balas-bhava" class="subtab-radio">
+            <label for="subtab-balas-bhava" class="subtab-label">Bhava Bala</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                House strength in Rupas: the house lord's own Shadbala, plus directional and aspect
+                strength for the house itself. No fixed "strong house" threshold is applied (none is
+                stated in BPHS) - houses are ranked relative to each other in this chart instead.
+              </p>
+              <div class="bhava-bar-chart">
+                {% for row in bhava_bala_rows %}
+                <div class="bhava-bar-row" title="House {{ row.house }}: {{ row.total_rupas }} Rupas">
+                  <span class="bhava-bar-axis">H{{ row.house }}</span>
+                  <div class="bhava-bar-track">
+                    <div class="bhava-bar-fill balas-fill" style="width: {{ row.width_pct }}%;"></div>
+                  </div>
+                  <span class="bhava-bar-value">{{ row.total_rupas }}</span>
+                </div>
+                {% endfor %}
+              </div>
+              <table class="compact-table wide">
+                <thead>
+                  <tr><th>House</th><th>Bhavadhipati</th><th>Dig</th><th>Drishti</th><th>Occupancy</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in bhava_bala_rows %}
+                  <tr>
+                    <td>House {{ row.house }}</td>
+                    <td>{{ row.bhavadhipati }}</td>
+                    <td>{{ row.dig }}</td>
+                    <td>{{ row.drishti }}</td>
+                    <td>{{ row.occupancy }}</td>
+                    <td><strong>{{ row.total_rupas }}</strong></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 

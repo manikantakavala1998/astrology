@@ -144,6 +144,43 @@ def test_every_planet_has_dignity_matching_its_own_sign() -> None:
         assert planet_position.dignity == expected
 
 
+def test_every_planet_carries_ecliptic_latitude_and_speed() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    moon = next(p for p in chart.planets if p.planet.value == "Moon")
+    # The Moon always moves fast and direct - a good sanity check that
+    # speed_longitude is real ephemeris data, not left at its 0.0 default.
+    assert moon.speed_longitude > 10.0
+    # Rahu/Ketu are always exactly on the ecliptic by convention.
+    rahu = next(p for p in chart.planets if p.planet.value == "Rahu")
+    ketu = next(p for p in chart.planets if p.planet.value == "Ketu")
+    assert rahu.ecliptic_latitude == 0.0
+    assert ketu.ecliptic_latitude == 0.0
+
+
+def test_chart_includes_all_three_balas() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert chart.shadbala is not None
+    assert chart.vimshopaka_bala is not None
+    assert chart.bhava_bala is not None
+
+    from vedic_astro.models import Planet
+
+    classical_planets = {
+        Planet.SUN, Planet.MOON, Planet.MARS, Planet.MERCURY,
+        Planet.JUPITER, Planet.VENUS, Planet.SATURN,
+    }
+    assert set(chart.shadbala) == classical_planets
+    assert set(chart.vimshopaka_bala) == classical_planets
+    assert set(chart.bhava_bala) == set(range(1, 13))
+
+    for result in chart.shadbala.values():
+        assert result.total_rupas > 0
+    for house_result in chart.bhava_bala.values():
+        # Bhavadhipati Bala alone (the house lord's own Shadbala) is
+        # always positive, so the total should be too for any real chart.
+        assert house_result.bhavadhipati_bala > 0
+
+
 def test_chart_includes_saturn_afflictions_and_general_doshas() -> None:
     chart = build_kundali_chart(_sample_birth_data())
     assert chart.saturn_afflictions is not None

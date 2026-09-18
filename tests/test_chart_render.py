@@ -174,13 +174,29 @@ def test_chart_cells_carry_direction_and_element() -> None:
     assert aries_cell.element_symbol
 
 
+def _dummy_band(value: int) -> tuple[str, str]:
+    return ("weak", "Weak") if value < 4 else ("strong", "Strong")
+
+
 def test_ashtakavarga_mini_grid_shows_bindus_and_natal_occupation() -> None:
     chart = build_kundali_chart(_sample_birth_data())
     assert chart.ashtakavarga is not None
     natal_signs = {p.sign for p in chart.planets}
-    grid = ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs)
+    grid = ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs, _dummy_band)
     cells = [cell for row in grid for cell in row if cell is not None]
     assert len(cells) == 12
     assert sum(cell.bindus for cell in cells) == 337
     for cell in cells:
         assert cell.is_natal_occupied == (cell.sign in natal_signs)
+
+
+def test_ashtakavarga_mini_grid_applies_the_given_band_function() -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    assert chart.ashtakavarga is not None
+    natal_signs = {p.sign for p in chart.planets}
+    grid = ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs, _dummy_band)
+    cells = [cell for row in grid for cell in row if cell is not None]
+    for cell in cells:
+        expected_class, expected_label = _dummy_band(cell.bindus)
+        assert cell.band_class == expected_class
+        assert cell.band_label == expected_label

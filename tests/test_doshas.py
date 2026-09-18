@@ -1,19 +1,24 @@
 import pytest
 
-from vedic_astro.doshas import compute_saturn_afflictions, compute_shani_dosha
+from vedic_astro.doshas import compute_punarphoo_dosha, compute_saturn_afflictions, compute_shani_dosha
 from vedic_astro.models import NakshatraPlacement, Planet, PlanetAspect, PlanetPosition, Sign
 
 _DUMMY_NAKSHATRA = NakshatraPlacement(name="Ashwini", index=1, pada=1, lord=Planet.KETU)
 
 
-def _planet(planet: Planet, house: int, sign: Sign = Sign.CAPRICORN) -> PlanetPosition:
+def _planet(
+    planet: Planet,
+    house: int,
+    sign: Sign = Sign.CAPRICORN,
+    nakshatra_lord: Planet = Planet.KETU,
+) -> PlanetPosition:
     return PlanetPosition(
         planet=planet,
         longitude=0.0,
         sign=sign,
         degree_in_sign=0.0,
         house=house,
-        nakshatra=_DUMMY_NAKSHATRA,
+        nakshatra=NakshatraPlacement(name="Ashwini", index=1, pada=1, lord=nakshatra_lord),
         retrograde=False,
     )
 
@@ -155,3 +160,108 @@ def test_all_three_pair_doshas_always_populated_with_a_reason() -> None:
     assert result.vish_dosha.reason
     assert result.shani_mangal_dosha.reason
     assert result.shani_rahu_dosha.reason
+
+
+def _punarphoo_planets(
+    saturn_house: int = 1,
+    moon_house: int = 5,
+    sun_house: int = 9,
+    saturn_nakshatra_lord: Planet = Planet.KETU,
+    moon_nakshatra_lord: Planet = Planet.KETU,
+) -> list[PlanetPosition]:
+    return [
+        _planet(Planet.SATURN, house=saturn_house, nakshatra_lord=saturn_nakshatra_lord),
+        _planet(Planet.MOON, house=moon_house, nakshatra_lord=moon_nakshatra_lord),
+        _planet(Planet.SUN, house=sun_house),
+        _planet(Planet.MARS, house=11),
+    ]
+
+
+def test_punarphoo_dosha_flagged_when_saturn_and_moon_conjunct() -> None:
+    planets = _punarphoo_planets(saturn_house=5, moon_house=5, sun_house=9)
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is True
+    assert result.conjunction_or_aspect is True
+    assert result.is_conjunction is True
+    assert result.is_cancelled is False
+
+
+def test_punarphoo_dosha_flagged_via_saturns_aspect_not_conjunction() -> None:
+    planets = _punarphoo_planets(saturn_house=1, moon_house=7, sun_house=9)
+    aspects = [
+        PlanetAspect(
+            source_planet=Planet.SATURN, source_house=1,
+            target_planet=Planet.MOON, target_house=7, is_special=False,
+        )
+    ]
+    result = compute_punarphoo_dosha(planets, aspects)
+    assert result.has_dosha is True
+    assert result.conjunction_or_aspect is True
+    assert result.is_conjunction is False
+
+
+def test_punarphoo_dosha_flagged_when_moon_in_saturn_ruled_nakshatra() -> None:
+    planets = _punarphoo_planets(
+        saturn_house=1, moon_house=2, sun_house=9, moon_nakshatra_lord=Planet.SATURN
+    )
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is True
+    assert result.moon_in_saturn_nakshatra is True
+    assert result.conjunction_or_aspect is False
+
+
+def test_punarphoo_dosha_flagged_when_saturn_in_moon_ruled_nakshatra() -> None:
+    planets = _punarphoo_planets(
+        saturn_house=1, moon_house=2, sun_house=9, saturn_nakshatra_lord=Planet.MOON
+    )
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is True
+    assert result.saturn_in_moon_nakshatra is True
+
+
+def test_punarphoo_dosha_not_flagged_when_unrelated() -> None:
+    planets = _punarphoo_planets(saturn_house=1, moon_house=2, sun_house=9)
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is False
+    assert "No conjunction" in result.reason
+
+
+def test_punarphoo_dosha_cancelled_when_sun_conjoins_both() -> None:
+    # Rule A: Sun sits with both Saturn and the Moon (all three conjunct).
+    planets = _punarphoo_planets(saturn_house=5, moon_house=5, sun_house=5)
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is True
+    assert result.cancelled_by_conjunction is True
+    assert result.is_cancelled is True
+    assert "cancelled" in result.reason.lower()
+
+
+def test_punarphoo_dosha_not_cancelled_by_sun_alone_without_saturn_moon_link() -> None:
+    # Sun conjunct Moon only (not Saturn) shouldn't cancel anything, since
+    # there is no dosha to cancel in the first place.
+    planets = _punarphoo_planets(saturn_house=1, moon_house=5, sun_house=5)
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is False
+    assert result.is_cancelled is False
+
+
+def test_punarphoo_dosha_cancelled_via_sun_ruled_nakshatra() -> None:
+    # Rule B: the Moon is in a Sun-ruled Nakshatra, while the dosha itself
+    # formed via Saturn-Moon conjunction.
+    planets = _punarphoo_planets(
+        saturn_house=5, moon_house=5, sun_house=9, moon_nakshatra_lord=Planet.SUN
+    )
+    result = compute_punarphoo_dosha(planets, aspects=[])
+    assert result.has_dosha is True
+    assert result.cancelled_by_nakshatra is True
+    assert result.is_cancelled is True
+
+
+def test_punarphoo_dosha_reason_always_populated() -> None:
+    for planets in [
+        _punarphoo_planets(saturn_house=1, moon_house=2, sun_house=9),
+        _punarphoo_planets(saturn_house=5, moon_house=5, sun_house=9),
+        _punarphoo_planets(saturn_house=5, moon_house=5, sun_house=5),
+    ]:
+        result = compute_punarphoo_dosha(planets, aspects=[])
+        assert result.reason

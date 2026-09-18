@@ -7,6 +7,7 @@ only, since that's the style requested for Phase 1.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from vedic_astro.models import SIGNS_IN_ORDER, KundaliChart, Planet, PlanetDignity, PlanetPosition, Sign
@@ -66,6 +67,8 @@ class AshtakavargaCell:
     sign: Sign
     bindus: int
     is_natal_occupied: bool
+    band_class: str = ""
+    band_label: str = ""
 
 
 def _build_planet_label(planet_position: PlanetPosition) -> PlanetLabel:
@@ -223,11 +226,19 @@ def bhava_chalit_layout(chart: KundaliChart) -> list[list[ChartCell | None]]:
 
 
 def ashtakavarga_mini_grid(
-    bindus_by_sign: dict[Sign, int], natal_signs: set[Sign]
+    bindus_by_sign: dict[Sign, int],
+    natal_signs: set[Sign],
+    band_fn: Callable[[int], tuple[str, str]],
 ) -> list[list[AshtakavargaCell | None]]:
     """One of the 3x3 screenshot-style Ashtakavarga mini-charts: the same
     fixed South Indian grid, showing a bindu count per sign instead of
-    planet labels, with signs occupied in the natal D1 chart highlighted."""
+    planet labels, with signs occupied in the natal D1 chart highlighted.
+
+    `band_fn` maps a bindu count to a (css_class, label) strength band -
+    callers pass a scale-appropriate function, since the SAV grid (0-56
+    per sign) and each planet's BAV grid (0-8 per sign) need different
+    thresholds even though they share the same rendering.
+    """
     grid: list[list[AshtakavargaCell | None]] = []
     for row in SOUTH_INDIAN_GRID:
         rendered_row: list[AshtakavargaCell | None] = []
@@ -235,11 +246,15 @@ def ashtakavarga_mini_grid(
             if sign is None:
                 rendered_row.append(None)
                 continue
+            bindus = bindus_by_sign[sign]
+            band_class, band_label = band_fn(bindus)
             rendered_row.append(
                 AshtakavargaCell(
                     sign=sign,
-                    bindus=bindus_by_sign[sign],
+                    bindus=bindus,
                     is_natal_occupied=sign in natal_signs,
+                    band_class=band_class,
+                    band_label=band_label,
                 )
             )
         grid.append(rendered_row)

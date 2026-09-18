@@ -104,6 +104,30 @@ def test_post_renders_shani_dosha_yogas_tabs_and_dignity_column() -> None:
     assert "Guru Chandala Dosha" in response.text
     assert "Content coming soon" in response.text
     assert "Dignity" in response.text
+
+
+def test_post_renders_balas_tab_with_all_three_subtabs() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "manual_latitude": "13.0827",
+            "manual_longitude": "80.2707",
+            "manual_utc_offset_hours": "5.5",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert 'id="panel-balas"' in response.text
+    assert "Sadbala" in response.text
+    assert "Vimshopaka Bala" in response.text
+    assert "Bhava Bala" in response.text
+    assert "Strong Enough" in response.text or "Below Required" in response.text
+    assert "Dashavarga and Shodashavarga not shown on purpose" in response.text
     assert 'id="panel-jaimini"' not in response.text
     assert "Janma Navaka" not in response.text
 

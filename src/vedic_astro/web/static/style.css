@@ -397,6 +397,10 @@ tbody tr:hover {
   max-width: 420px;
 }
 
+.compact-table.wide {
+  max-width: none;
+}
+
 .compact-table th,
 .compact-table td {
   padding: 0.35rem 0.5rem;
@@ -526,12 +530,12 @@ tr.total-row {
 #tab-chart:checked ~ .tab-bar label[for="tab-chart"],
 #tab-dasha:checked ~ .tab-bar label[for="tab-dasha"],
 #tab-aspects:checked ~ .tab-bar label[for="tab-aspects"],
-#tab-jaimini:checked ~ .tab-bar label[for="tab-jaimini"],
 #tab-yogas:checked ~ .tab-bar label[for="tab-yogas"],
 #tab-divisional:checked ~ .tab-bar label[for="tab-divisional"],
 #tab-ashtakavarga:checked ~ .tab-bar label[for="tab-ashtakavarga"],
 #tab-shani:checked ~ .tab-bar label[for="tab-shani"],
 #tab-dosha:checked ~ .tab-bar label[for="tab-dosha"],
+#tab-balas:checked ~ .tab-bar label[for="tab-balas"],
 #tab-panchanga:checked ~ .tab-bar label[for="tab-panchanga"],
 #tab-compat:checked ~ .tab-bar label[for="tab-compat"],
 #tab-tools:checked ~ .tab-bar label[for="tab-tools"],
@@ -544,12 +548,12 @@ tr.total-row {
 #tab-chart:checked ~ #panel-chart,
 #tab-dasha:checked ~ #panel-dasha,
 #tab-aspects:checked ~ #panel-aspects,
-#tab-jaimini:checked ~ #panel-jaimini,
 #tab-yogas:checked ~ #panel-yogas,
 #tab-divisional:checked ~ #panel-divisional,
 #tab-ashtakavarga:checked ~ #panel-ashtakavarga,
 #tab-shani:checked ~ #panel-shani,
 #tab-dosha:checked ~ #panel-dosha,
+#tab-balas:checked ~ #panel-balas,
 #tab-panchanga:checked ~ #panel-panchanga,
 #tab-compat:checked ~ #panel-compat,
 #tab-tools:checked ~ #panel-tools,
@@ -837,30 +841,7 @@ tr.total-row {
   z-index: 1;
 }
 
-/* Bindu-count heatmap: 0-8 scale blended between the panel color and the
-   primary accent, so higher scores read visually "hotter" at a glance -
-   the "graph" feel, without any charting library or JS. */
-.mini-chart-cell.bindus-0 { background: var(--panel); }
-.mini-chart-cell.bindus-1 { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
-.mini-chart-cell.bindus-2 { background: color-mix(in srgb, var(--accent) 20%, var(--panel)); }
-.mini-chart-cell.bindus-3 { background: color-mix(in srgb, var(--accent) 32%, var(--panel)); }
-.mini-chart-cell.bindus-4 { background: color-mix(in srgb, var(--accent) 44%, var(--panel)); color: var(--text); }
-.mini-chart-cell.bindus-5 { background: color-mix(in srgb, var(--accent) 56%, var(--panel)); color: #fff; }
-.mini-chart-cell.bindus-6 { background: color-mix(in srgb, var(--accent) 68%, var(--panel)); color: #fff; }
-.mini-chart-cell.bindus-7 { background: color-mix(in srgb, var(--accent) 82%, var(--panel)); color: #fff; }
-.mini-chart-cell.bindus-8 { background: var(--accent); color: #fff; }
-
-.mini-chart-cell.bindus-4 .cell-sign,
-.mini-chart-cell.bindus-5 .cell-sign,
-.mini-chart-cell.bindus-6 .cell-sign,
-.mini-chart-cell.bindus-7 .cell-sign,
-.mini-chart-cell.bindus-8 .cell-sign {
-  color: inherit;
-  opacity: 0.85;
-}
-
 .cell-bindus {
-  font-weight: 700;
   font-size: 0.72rem;
 }
 
@@ -883,47 +864,46 @@ tr.total-row {
 .sav-band-strong { color: #689f38; font-weight: 700; }
 .sav-band-exceptional { color: #1b5e20; font-weight: 700; }
 
-/* ---- Bhava Ashtakavarga: CSS-only vertical bar chart, color-banded like
-   the SAV legend above - one baseline, 12 columns, score labeled at the
-   cap, house labeled on the axis below. ---- */
+/* ---- Bhava Ashtakavarga: CSS-only horizontal bar chart, color-banded
+   like the SAV legend above - one shared left baseline, 12 rows, house on
+   the axis, value at the tip. ---- */
 
 .bhava-bar-chart {
   display: flex;
-  align-items: stretch;
-  gap: 2px;
-  margin: 1rem 0 1.25rem;
-}
-
-.bhava-bar-col {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: 3px;
+  margin: 1rem 0 1.25rem;
+  max-width: 560px;
 }
 
-.bhava-bar-value {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 0.3rem;
+.bhava-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.bhava-bar-axis {
+  width: 2.8rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
 }
 
 .bhava-bar-track {
-  width: 100%;
-  height: 160px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  border-bottom: 1px solid var(--border);
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+  background: var(--bg-alt);
+  border-radius: 0 4px 4px 0;
+  border-left: 1px solid var(--border-strong);
+  overflow: hidden;
 }
 
 .bhava-bar-fill {
-  width: 100%;
-  max-width: 22px;
-  min-height: 2px;
-  border-radius: 4px 4px 0 0;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 0 4px 4px 0;
 }
 
 .bhava-bar-fill.sav-band-critically-weak { background: #e53935; }
@@ -932,10 +912,18 @@ tr.total-row {
 .bhava-bar-fill.sav-band-strong { background: #8bc34a; }
 .bhava-bar-fill.sav-band-exceptional { background: #1b5e20; }
 
-.bhava-bar-axis {
-  margin-top: 0.35rem;
-  font-size: 0.7rem;
-  color: var(--muted);
+/* Bhava Bala bars: a neutral accent color, not the red/green severity
+   scale above - these are ranked relative to each other, not read against
+   a good/bad threshold. */
+.bhava-bar-fill.balas-fill { background: var(--accent); }
+
+.bhava-bar-value {
+  width: 2ch;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The thick-green "Exceptionally Powerful" band is deliberately very dark

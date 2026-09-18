@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from vedic_astro.models import SIGNS_IN_ORDER, KootaResult, KundaliChart, MangalDoshaResult, MatchReport, Planet, Sign
 from vedic_astro.nakshatra import NAKSHATRA_NAMES, TARA_FAVORABLE, tara_category
+from vedic_astro.planetary_relations import natural_relation
 from vedic_astro.rashi_bhava import RASHI_LORD
 
 # ---------------------------------------------------------------------------
@@ -138,41 +139,12 @@ def yoni_koota(bride_nakshatra_index: int, groom_nakshatra_index: int) -> KootaR
 # Graha Maitri (5 points): rashi lord -> classical planetary friendship
 # ---------------------------------------------------------------------------
 
-_FRIENDS: dict[Planet, set[Planet]] = {
-    Planet.SUN: {Planet.MOON, Planet.MARS, Planet.JUPITER},
-    Planet.MOON: {Planet.SUN, Planet.MERCURY},
-    Planet.MARS: {Planet.SUN, Planet.MOON, Planet.JUPITER},
-    Planet.MERCURY: {Planet.SUN, Planet.VENUS},
-    Planet.JUPITER: {Planet.SUN, Planet.MOON, Planet.MARS},
-    Planet.VENUS: {Planet.MERCURY, Planet.SATURN},
-    Planet.SATURN: {Planet.MERCURY, Planet.VENUS},
-}
-_ENEMIES: dict[Planet, set[Planet]] = {
-    Planet.SUN: {Planet.VENUS, Planet.SATURN},
-    Planet.MOON: set(),
-    Planet.MARS: {Planet.MERCURY},
-    Planet.MERCURY: {Planet.MOON},
-    Planet.JUPITER: {Planet.MERCURY, Planet.VENUS},
-    Planet.VENUS: {Planet.SUN, Planet.MOON},
-    Planet.SATURN: {Planet.SUN, Planet.MOON, Planet.MARS},
-}
-
-
-def _relation(a: Planet, b: Planet) -> str:
-    if a == b:
-        return "same"
-    if b in _FRIENDS[a]:
-        return "friend"
-    if b in _ENEMIES[a]:
-        return "enemy"
-    return "neutral"
-
 
 def graha_maitri_koota(bride_sign: Sign, groom_sign: Sign) -> KootaResult:
     bride_lord = RASHI_LORD[bride_sign]
     groom_lord = RASHI_LORD[groom_sign]
-    a_to_b = _relation(bride_lord, groom_lord)
-    b_to_a = _relation(groom_lord, bride_lord)
+    a_to_b = natural_relation(bride_lord, groom_lord)
+    b_to_a = natural_relation(groom_lord, bride_lord)
     tiers = {a_to_b, b_to_a}
 
     if bride_lord == groom_lord:

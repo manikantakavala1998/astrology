@@ -232,7 +232,7 @@ def _ashtakavarga_tiles(chart: KundaliChart) -> list[dict[str, object]]:
     tiles: list[dict[str, object]] = [
         {
             "label": "SAV (Samudaya Ashtakavarga)",
-            "grid": ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs),
+            "grid": ashtakavarga_mini_grid(chart.ashtakavarga.sav, natal_signs, _sav_band),
             "pending": False,
         }
     ]
@@ -240,7 +240,9 @@ def _ashtakavarga_tiles(chart: KundaliChart) -> list[dict[str, object]]:
         tiles.append(
             {
                 "label": planet.value,
-                "grid": ashtakavarga_mini_grid(chart.ashtakavarga.bav_by_planet[planet], natal_signs),
+                "grid": ashtakavarga_mini_grid(
+                    chart.ashtakavarga.bav_by_planet[planet], natal_signs, _bav_band
+                ),
                 "pending": False,
             }
         )
@@ -270,6 +272,19 @@ def _sav_band(score: int) -> tuple[str, str]:
         if score < threshold:
             return css_class, label
     return "exceptional", "Exceptionally Powerful"
+
+
+def _bav_band(bindus: int) -> tuple[str, str]:
+    """(css_class, label) for a single planet's per-sign BAV bindu count
+    (0-8 scale, not the 0-56 SAV scale above) - a simpler 3-tier reading
+    (0-3 weak, 4 average, 5-8 strong), reusing the SAV bands' red/yellow/
+    green classes since the color meaning (weak -> strong) is the same,
+    just a coarser split appropriate to the smaller range."""
+    if bindus <= 3:
+        return "critically-weak", "Weak"
+    if bindus == 4:
+        return "average", "Average"
+    return "strong", "Strong"
 
 
 def _divisional_chart_entries(
@@ -310,6 +325,68 @@ def _bhava_ashtakavarga_rows(chart: KundaliChart) -> list[dict[str, object]]:
         score = chart.ashtakavarga.bhava_ashtakavarga[house]
         css_class, label = _sav_band(score)
         rows.append({"house": house, "score": score, "band_class": css_class, "band_label": label})
+    return rows
+
+
+def _shadbala_rows(chart: KundaliChart) -> list[dict[str, object]]:
+    assert chart.shadbala is not None
+    rows: list[dict[str, object]] = []
+    for planet in ASHTAKAVARGA_PLANETS:
+        r = chart.shadbala[planet]
+        rows.append(
+            {
+                "planet": planet.value,
+                "sthana": round(r.sthana_bala.total, 1),
+                "dig": round(r.dig_bala, 1),
+                "kala": round(r.kala_bala.total, 1),
+                "chesta": round(r.chesta_bala, 1),
+                "naisargika": round(r.naisargika_bala, 1),
+                "drik": round(r.drik_bala, 1),
+                "total_rupas": round(r.total_rupas, 2),
+                "required_rupas": r.required_rupas,
+                "meets": r.meets_required_strength,
+                "ishta_phala": round(r.ishta_phala, 2),
+                "kashta_phala": round(r.kashta_phala, 2),
+            }
+        )
+    return rows
+
+
+def _vimshopaka_rows(chart: KundaliChart) -> list[dict[str, object]]:
+    assert chart.vimshopaka_bala is not None
+    rows: list[dict[str, object]] = []
+    for planet in ASHTAKAVARGA_PLANETS:
+        r = chart.vimshopaka_bala[planet]
+        rows.append(
+            {
+                "planet": planet.value,
+                "shadvarga_score": round(r.shadvarga_score, 2),
+                "shadvarga_band": r.shadvarga_band,
+                "saptavarga_score": round(r.saptavarga_score, 2),
+                "saptavarga_band": r.saptavarga_band,
+            }
+        )
+    return rows
+
+
+def _bhava_bala_rows(chart: KundaliChart) -> list[dict[str, object]]:
+    assert chart.bhava_bala is not None
+    max_total = max(r.total_rupas for r in chart.bhava_bala.values())
+    rows: list[dict[str, object]] = []
+    for house in range(1, 13):
+        r = chart.bhava_bala[house]
+        width_pct = (r.total_rupas / max_total * 100) if max_total > 0 else 0.0
+        rows.append(
+            {
+                "house": house,
+                "bhavadhipati": round(r.bhavadhipati_bala, 2),
+                "dig": round(r.bhava_dig_bala, 2),
+                "drishti": round(r.bhava_drishti_bala, 2),
+                "occupancy": round(r.occupancy_adjustment, 2),
+                "total_rupas": round(r.total_rupas, 2),
+                "width_pct": round(width_pct, 1),
+            }
+        )
     return rows
 
 
@@ -354,6 +431,9 @@ def _empty_form_context() -> dict[str, object]:
         "current_antardasha": None,
         "kendra_lords": None,
         "trikona_lords": None,
+        "shadbala_rows": None,
+        "vimshopaka_rows": None,
+        "bhava_bala_rows": None,
         "resolved_place": None,
         "resolved_place_b": None,
         "candidates": None,
@@ -514,6 +594,9 @@ def compute_chart(
     context["resolved_place"] = a_location.label
     context["kendra_lords"] = _sign_lords_for_houses(chart_a, [1, 4, 7])
     context["trikona_lords"] = _sign_lords_for_houses(chart_a, [1, 5, 9])
+    context["shadbala_rows"] = _shadbala_rows(chart_a)
+    context["vimshopaka_rows"] = _vimshopaka_rows(chart_a)
+    context["bhava_bala_rows"] = _bhava_bala_rows(chart_a)
 
     if want_match and b_location is not None:
         assert b_date is not None and b_time is not None
@@ -607,6 +690,9 @@ def ask_question(
     context["current_antardasha"] = chart_a.dasha.current_antardasha(now_local)
     context["kendra_lords"] = _sign_lords_for_houses(chart_a, [1, 4, 7])
     context["trikona_lords"] = _sign_lords_for_houses(chart_a, [1, 5, 9])
+    context["shadbala_rows"] = _shadbala_rows(chart_a)
+    context["vimshopaka_rows"] = _vimshopaka_rows(chart_a)
+    context["bhava_bala_rows"] = _bhava_bala_rows(chart_a)
     context["match_report"] = match_report
     context["question"] = question
 

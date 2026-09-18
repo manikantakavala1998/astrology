@@ -112,6 +112,12 @@ class PlanetPosition(BaseModel):
     house: int = Field(ge=1, le=12)
     nakshatra: NakshatraPlacement
     retrograde: bool
+    # Ecliptic latitude (degrees) and daily motion (degrees/day, negative =
+    # retrograde) - raw ephemeris facts needed by shadbala.py (Ayana Bala's
+    # declination, Chesta Bala's speed classification). 0.0 for Rahu/Ketu
+    # (always treated as exactly on the ecliptic).
+    ecliptic_latitude: float = 0.0
+    speed_longitude: float = 0.0
     navamsa_sign: Sign | None = None
     hora_sign: Sign | None = None
     hora_lord: Planet | None = None
@@ -328,6 +334,92 @@ class KujaDoshaResult(BaseModel):
     overall_classification: str  # "High/Full Manglik", "Low/Partial Manglik", "Not Manglik"
 
 
+class PunarphooDoshaResult(BaseModel):
+    """See doshas.py. Forms via conjunction/aspect OR a mutual Nakshatra
+    link between Saturn and the Moon; can be cancelled (Punarphoo Bhanga)
+    by the Sun - see the two cancelled_by_* fields."""
+
+    has_dosha: bool
+    is_cancelled: bool
+    conjunction_or_aspect: bool
+    is_conjunction: bool
+    moon_in_saturn_nakshatra: bool
+    saturn_in_moon_nakshatra: bool
+    cancelled_by_conjunction: bool
+    cancelled_by_nakshatra: bool
+    reason: str
+
+
+class SthanaBalaBreakdown(BaseModel):
+    """See shadbala.py. All values in virupas (60 virupas = 1 rupa)."""
+
+    uchcha_bala: float
+    saptavargaja_bala: float
+    ojayugmarasyamsa_bala: float
+    kendradi_bala: float
+    drekkana_bala: float
+    total: float
+
+
+class KalaBalaBreakdown(BaseModel):
+    """See shadbala.py. Masa Bala and Varsha Bala are deliberately not
+    included - held pending a confirmed classical source for the month/
+    year-lord determination algorithm (see the plan's scope decisions)."""
+
+    nathonnata_bala: float
+    paksha_bala: float
+    tribhaga_bala: float
+    dina_bala: float
+    hora_bala: float
+    ayana_bala: float
+    total: float
+
+
+class ShadbalaResult(BaseModel):
+    """See shadbala.py. Computed only for the 7 classical planets (Sun
+    through Saturn) - Rahu/Ketu are excluded, matching dignity.py's own
+    exclusion of the lunar nodes from dignity scoring."""
+
+    planet: Planet
+    sthana_bala: SthanaBalaBreakdown
+    dig_bala: float
+    kala_bala: KalaBalaBreakdown
+    chesta_bala: float
+    naisargika_bala: float
+    drik_bala: float
+    total_virupas: float
+    total_rupas: float
+    required_rupas: float
+    meets_required_strength: bool
+    ishta_phala: float
+    kashta_phala: float
+
+
+class VimshopakaBalaResult(BaseModel):
+    """See vimshopaka_bala.py. Shadvarga (6 charts) and Saptavarga (7
+    charts) only - Dashavarga/Shodashavarga need divisional charts this
+    app doesn't have built (D16, D60, and more - see the plan)."""
+
+    planet: Planet
+    shadvarga_score: float = Field(ge=0, le=20)
+    saptavarga_score: float = Field(ge=0, le=20)
+    shadvarga_band: str
+    saptavarga_band: str
+
+
+class BhavaBalaResult(BaseModel):
+    """See bhava_bala.py. bhavadhipati_bala is the house lord's own total
+    Shadbala (rupas) - a hard BPHS dependency, not computed independently."""
+
+    house: int = Field(ge=1, le=12)
+    bhavadhipati_bala: float
+    bhava_dig_bala: float
+    bhava_drishti_bala: float
+    occupancy_adjustment: float
+    diurnal_bonus: float
+    total_rupas: float
+
+
 class KundaliChart(BaseModel):
     birth_data: BirthData
     ascendant: Ascendant
@@ -347,6 +439,10 @@ class KundaliChart(BaseModel):
     kalasarpa_dosha: KalasarpaDoshaResult | None = None
     kuja_dosha: KujaDoshaResult | None = None
     guru_chandala_dosha: SaturnPairDosha | None = None
+    punarphoo_dosha: PunarphooDoshaResult | None = None
+    shadbala: dict[Planet, ShadbalaResult] | None = None
+    vimshopaka_bala: dict[Planet, VimshopakaBalaResult] | None = None
+    bhava_bala: dict[int, BhavaBalaResult] | None = None
 
 
 class KootaResult(BaseModel):
