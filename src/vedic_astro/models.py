@@ -213,6 +213,221 @@ class CharaDashaPeriod(BaseModel):
     end: datetime
 
 
+class BhriguChakraYear(BaseModel):
+    """One year's row of Bhrigu Chakra Paddhati with M. Imran's cycle-ruler
+    extension (Saptarishis Astrology) - see bcp.py module docstring for the
+    source and exact rule. `cycle_ruler` and the cycle-ruler-based fields are
+    None past age 108, since the source only names 9 cycle rulers (one per
+    graha) and doesn't define a 10th."""
+
+    age: int = Field(ge=1)
+    cycle_number: int = Field(ge=1)
+    position_in_cycle: int = Field(ge=1, le=12)
+    house_from_lagna: int = Field(ge=1, le=12)
+    sign_from_lagna: Sign
+    planets_from_lagna: list[Planet]
+    cycle_ruler: Planet | None
+    house_from_cycle_ruler: int | None
+    sign_from_cycle_ruler: Sign | None
+    planets_from_cycle_ruler: list[Planet]
+
+
+class BcpLongevityFlaggedHouse(BaseModel):
+    """One house flagged by a BCP longevity rule, and every age (per the
+    classical Bhrigu Chakra table) at which that house comes active."""
+
+    label: str
+    house_from_lagna: int = Field(ge=1, le=12)
+    sign: Sign
+    ages: list[int]
+
+
+class BcpLongevityIndication(BaseModel):
+    """BCP-based longevity indication - see bcp.py module docstring for the
+    source (Sampath Kumar Medavarapu, "Bhrigu Chakra Paddhati & Longevity")
+    and its own caveats. `rule` is "Rule 1" (Ascendant occupied - watch
+    Saturn's house) or "Rule 2" (Ascendant vacant - watch Moon's house and
+    5th/6th/8th from Moon)."""
+
+    rule: str
+    reason: str
+    flagged_houses: list[BcpLongevityFlaggedHouse]
+
+
+class BspRuleResult(BaseModel):
+    """One numbered rule of Bhrigu Sarala Paddhati (BSP) - see bsp.py module
+    docstring for the source (Abhishekha, "The Logic of Bhrighu Saral
+    Paddhati", Saptarishis Astrology) and its precondition/interpretation
+    notes. `special_status` is whether this chart's `planet` qualifies for
+    the rule at all; `age` and the affected house/sign are only meaningful
+    when it does."""
+
+    rule_number: int
+    planet: Planet
+    special_status: bool
+    special_status_reasons: list[str]
+    age: int
+    house_offset: int
+    aspect_used: int | None
+    affected_house_from_lagna: int | None
+    affected_sign: Sign | None
+    summary: str
+
+
+class BspHouseNote(BaseModel):
+    """A permanent (not age-timed) BSP house note - BSP-1 (Saturn's Karmic
+    House), BSP-2 (Jupiter's Karmic House), BSP-14 (Past Life Bhava/Bhrighu
+    Bhava). Unlike BspRuleResult, these apply to every chart, always."""
+
+    rule_number: int
+    title: str
+    house_from_lagna: int = Field(ge=1, le=12)
+    sign: Sign
+    planets_in_house: list[Planet]
+    note: str
+
+
+class BspAriesSpoilt(BaseModel):
+    """BSP-5: when Jupiter and Saturn are conjunct (same house), the house
+    occupying Aries is 'spoilt/activated'. None when the condition doesn't
+    hold in this chart."""
+
+    house_from_lagna: int = Field(ge=1, le=12)
+    planets_in_house: list[Planet]
+
+
+class BspVenusReveals(BaseModel):
+    """BSP-15: Venus's own house (or a planet it conjoins, and that planet's
+    own house-lordships) can - not will - indicate disease/medical expense,
+    death, or dramatic trouble (Peeda); Venus can also afflict the 12th
+    house from itself. Qualitative guidance, not a strict rule - see bsp.py."""
+
+    venus_house_from_lagna: int = Field(ge=1, le=12)
+    venus_sign: Sign
+    conjunct_planets: list[Planet]
+    conjunct_planet_lordships: dict[str, list[int]]
+    twelfth_from_venus_house_from_lagna: int = Field(ge=1, le=12)
+    twelfth_from_venus_sign: Sign
+
+
+class BnnKarakaReading(BaseModel):
+    """General 'read a karaka planet' procedure shared by both Bhrigu Nandi
+    Nadi source texts - see bhrigu_nandi_nadi.py module docstring. Applied
+    identically to every karaka (sign, dispositor, conjunct planets, planets
+    in the adjacent (2nd/12th) and 7th signs from it, sign-exchange with its
+    dispositor, natural friendship with its dispositor, dignity, retrograde
+    status)."""
+
+    karaka: Planet
+    signifies: str
+    sign: Sign
+    dispositor: Planet
+    dispositor_house_from_karaka: int = Field(ge=1, le=12)
+    conjunct_planets: list[Planet]
+    planets_next_sign: list[Planet]
+    planets_previous_sign: list[Planet]
+    planets_seventh_sign: list[Planet]
+    sign_exchange_with: Planet | None
+    dispositor_relation: str | None
+    dignity: PlanetDignity
+    retrograde: bool
+
+
+class BnnSiblingCount(BaseModel):
+    """Sibling count via the Jupiter-as-self 'crossing' algorithm - Chart 1
+    of Bhrigu Nandi Nadi (R.G. Rao). See bhrigu_nandi_nadi.py module
+    docstring for the source's own acknowledged inconsistencies (a
+    conflicting worked example on whether a lone Ketu behind Jupiter counts,
+    and one chart that inverts the elder/younger convention) - not resolved
+    here, just flagged."""
+
+    elder_planet: Planet | None
+    younger_planets: list[Planet]
+    elder_count: int
+    younger_count: int
+    elder_gender_breakdown: dict[str, int]
+    younger_gender_breakdown: dict[str, int]
+
+
+class BnnMarriageTimingVariant(BaseModel):
+    spouse_karaka: Planet
+    spouse_karaka_sign: Sign
+    ages: list[int]
+
+
+class BnnMarriageTiming(BaseModel):
+    """Marriage occurs (per both source texts) when transiting Jupiter
+    reaches the spouse-karaka's natal sign: Venus for a male native, Mars
+    for a female native. Since this app does not record the native's sex,
+    both variants are computed and returned - see bhrigu_nandi_nadi.py."""
+
+    male_native: BnnMarriageTimingVariant
+    female_native: BnnMarriageTimingVariant
+
+
+class BnnShortLifeIndication(BaseModel):
+    """PAGE 193-194 of Bhrigu Nandi Nadi (R.G. Rao): if Jupiter has no
+    planet in its adjacent (2nd/12th) or 7th sign, short life is indicated;
+    if Saturn is similarly bare, poverty/difficulties are indicated. Two
+    independent flags, not a strict prediction - see module docstring."""
+
+    jupiter_bare: bool
+    saturn_bare: bool
+
+
+class BnnCareerSequence(BaseModel):
+    """Saturn's 'planets contacted in transit order' narrative device for
+    career-stage sequencing - the same structural primitive as the sibling-
+    crossing algorithm, applied to Saturn/profession instead of Jupiter/
+    siblings. See bhrigu_nandi_nadi.py module docstring for the source's own
+    imprecisely-specified worked example of the age arithmetic."""
+
+    planets_in_order: list[Planet]
+    ages: list[int]
+
+
+class BnnResult(BaseModel):
+    """Bhrigu Nandi Nadi - see bhrigu_nandi_nadi.py module docstring for the
+    two sources (R.G. Rao's "Bhrigu Nandi Nadi", N. Srinivasan Shastry's
+    "Brighu Naadi Sangraha") and what is deliberately NOT implemented (the
+    hundreds of multi-condition combination-dictionary entries, which both
+    sources' own worked examples show rarely fire on an exact match)."""
+
+    jupiter_as_lagna_houses: dict[int, Sign]
+    karaka_readings: list[BnnKarakaReading]
+    sibling_count: BnnSiblingCount
+    marriage_timing: BnnMarriageTiming
+    short_life_indication: BnnShortLifeIndication
+    career_sequence: BnnCareerSequence
+
+
+class BadhakaResult(BaseModel):
+    """Badhaka (obstruction) house for one ascendant sign, per its modality
+    (movable->11H, fixed->9H, dual->7H) - see padma_chakra.py."""
+
+    ascendant_sign: Sign
+    modality: str
+    badhaka_house_from_lagna: int = Field(ge=1, le=12)
+    badhaka_sign: Sign
+    badhakesh: Planet
+
+
+class PadmaChakraYear(BaseModel):
+    """One year of Padma Chakra Paddhati - see padma_chakra.py module
+    docstring for the source (Pramod Bhavasar / Gautam Dave, Saptarishis
+    Astrology) and the year-boundary formula."""
+
+    age: int
+    start_date: datetime
+    end_date: datetime
+    house_from_lagna: int = Field(ge=1, le=12)
+    sign: Sign
+    year_lord: Planet
+    year_lord_dwadasamsa_sign: Sign
+    superimposed_house_from_lagna: int = Field(ge=1, le=12)
+    is_badhaka: bool
+
+
 class ShaniDoshaResult(BaseModel):
     """Standalone Saturn-affliction check - see doshas.py. Always populated
     (has_house_dosha/has_neech_dosha drive UI styling only), same pattern
@@ -443,6 +658,16 @@ class KundaliChart(BaseModel):
     shadbala: dict[Planet, ShadbalaResult] | None = None
     vimshopaka_bala: dict[Planet, VimshopakaBalaResult] | None = None
     bhava_bala: dict[int, BhavaBalaResult] | None = None
+    bhrigu_chakra: list[BhriguChakraYear] = []
+    bcp_longevity: BcpLongevityIndication | None = None
+    bsp_rules: list[BspRuleResult] = []
+    bsp_house_notes: list[BspHouseNote] = []
+    bsp_aries_spoilt: BspAriesSpoilt | None = None
+    bsp_venus_reveals: BspVenusReveals | None = None
+    badhaka_d1: BadhakaResult | None = None
+    badhaka_d12: BadhakaResult | None = None
+    padma_chakra: list[PadmaChakraYear] = []
+    bnn: BnnResult | None = None
 
 
 class KootaResult(BaseModel):

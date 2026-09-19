@@ -74,8 +74,125 @@ def test_post_with_place_name_renders_chart() -> None:
     assert response.status_code == 200
     assert 'id="panel-chart"' in response.text
     assert "Ascendant (Lagna)" in response.text
+
+
+def test_post_with_place_name_renders_bcp_tab() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "place_name": "Chennai, India",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert 'id="panel-bcp"' in response.text
+    assert "Bhrigu Chakra Paddhati" in response.text
+    assert 'id="bcp-year-1"' in response.text
+    assert 'id="bcp-year-108"' in response.text
+    # Year 109 has no defined cycle ruler in the source (only 9 grahas).
+    assert 'id="bcp-year-109"' in response.text
+    assert "Not defined by this source past age 108" in response.text
+    assert "BCP Longevity Indication" in response.text
+    assert "Sampath Kumar Medavarapu" in response.text
+    assert ("Rule 1 applies" in response.text) or ("Rule 2 applies" in response.text)
+    assert 'id="subtab-bcp-core"' in response.text
+    assert 'id="subtab-bsp"' in response.text
+    assert 'id="subtab-padma-chakra"' in response.text
+
+
+def test_post_with_place_name_renders_bnn_tab() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "place_name": "Chennai, India",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert 'id="panel-bnn"' in response.text
+    assert "Bhrigu Nandi Nadi" in response.text
+    assert "Jupiter as Lagna" in response.text
+    assert "Karaka Readings" in response.text
+    assert "Sibling Count" in response.text
+    assert "Marriage Timing" in response.text
+    assert "Short-Life / Poverty Indication" in response.text
+    assert "Career Sequence (Saturn)" in response.text
+
+
+def test_post_with_place_name_renders_bsp_subtab() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "place_name": "Chennai, India",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert "Bhrigu Sarala Paddhati" in response.text
+    assert "#6" in response.text and "#13" in response.text
+    assert "Permanent House Notes" in response.text
+    assert "#1" in response.text and "#2" in response.text and "#14" in response.text
+    assert "Aries Spoilt" in response.text
+    assert "Shukra (Venus) Reveals" in response.text
+
+
+def test_post_with_place_name_renders_padma_chakra_subtab() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "place_name": "Chennai, India",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert "Padma Chakra Paddhati" in response.text
+    assert "Gautam Dave" in response.text
+    assert 'id="padma-year-1"' in response.text
+    assert 'id="padma-year-120"' in response.text
+    assert "Badhaka" in response.text
     assert "Vimshottari Dasha" in response.text
     assert "Chennai" in response.text
+
+
+def test_post_renders_classic_predictions_tab_before_yogas() -> None:
+    response = client.post(
+        "/",
+        data={
+            "birth_date": "1990-06-15",
+            "birth_hour": "8",
+            "birth_minute": "30",
+            "birth_meridiem": "AM",
+            "place_name": "Chennai, India",
+            "ayanamsha": "lahiri",
+            "node_type": "mean",
+        },
+    )
+    assert response.status_code == 200
+    assert 'id="panel-classic-predictions"' in response.text
+    assert "Classic Predictions" in response.text
+    classic_index = response.text.index('id="tab-classic-predictions"')
+    yogas_index = response.text.index('id="tab-yogas"')
+    assert classic_index < yogas_index
 
 
 def test_post_renders_shani_dosha_yogas_tabs_and_dignity_column() -> None:

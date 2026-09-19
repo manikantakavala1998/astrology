@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from vedic_astro.ashtakavarga import compute_ashtakavarga
 from vedic_astro.aspects import compute_aspects
+from vedic_astro.bcp import compute_bcp_longevity, compute_bhrigu_chakra
 from vedic_astro.bhava_bala import compute_bhava_bala
+from vedic_astro.bhrigu_nandi_nadi import compute_bhrigu_nandi_nadi
+from vedic_astro.bsp import (
+    compute_bsp_aries_spoilt, compute_bsp_house_notes, compute_bsp_rules, compute_bsp_venus_reveals,
+)
 from vedic_astro.dasha import compute_vimshottari_dasha
 from vedic_astro.dignity import planet_dignity
-from vedic_astro.divisional_charts import VARGA_REGISTRY
+from vedic_astro.divisional_charts import VARGA_REGISTRY, dwadasamsa_sign
 from vedic_astro.doshas import compute_punarphoo_dosha, compute_saturn_afflictions, compute_shani_dosha
 from vedic_astro.ephemeris import ascendant_longitude, house_cusps, planet_positions
 from vedic_astro.general_doshas import (
@@ -18,6 +23,7 @@ from vedic_astro.general_doshas import (
 from vedic_astro.jaimini import compute_chara_dasha, compute_chara_karakas
 from vedic_astro.models import BirthData, HouseSystem, KundaliChart, Planet, PlanetPosition, Sign
 from vedic_astro.nakshatra import nakshatra_for_longitude
+from vedic_astro.padma_chakra import compute_badhaka, compute_padma_chakra_years
 from vedic_astro.panchanga import compute_panchanga
 from vedic_astro.rashi_bhava import (
     build_ascendant,
@@ -133,4 +139,16 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
         shadbala=shadbala,
         vimshopaka_bala=vimshopaka_bala,
         bhava_bala=bhava_bala,
+        bhrigu_chakra=compute_bhrigu_chakra(ascendant.sign, planets),
+        bcp_longevity=compute_bcp_longevity(ascendant.sign, planets),
+        bsp_rules=compute_bsp_rules(ascendant.sign, planets, aspects),
+        bsp_house_notes=compute_bsp_house_notes(ascendant.sign, planets),
+        bsp_aries_spoilt=compute_bsp_aries_spoilt(ascendant.sign, planets),
+        bsp_venus_reveals=compute_bsp_venus_reveals(ascendant.sign, planets),
+        badhaka_d1=compute_badhaka(ascendant.sign),
+        badhaka_d12=compute_badhaka(dwadasamsa_sign(ascendant.longitude)),
+        padma_chakra=compute_padma_chakra_years(
+            ascendant.sign, ascendant.longitude, planets, birth_data.local_datetime
+        ),
+        bnn=compute_bhrigu_nandi_nadi(planets),
     )

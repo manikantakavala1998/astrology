@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from vedic_astro.models import SIGNS_IN_ORDER, Planet, PlanetAspect, PlanetPosition, Sign
 
-_MODALITY: dict[Sign, str] = {
+SIGN_MODALITY: dict[Sign, str] = {
     Sign.ARIES: "movable", Sign.CANCER: "movable", Sign.LIBRA: "movable", Sign.CAPRICORN: "movable",
     Sign.TAURUS: "fixed", Sign.LEO: "fixed", Sign.SCORPIO: "fixed", Sign.AQUARIUS: "fixed",
     Sign.GEMINI: "dual", Sign.VIRGO: "dual", Sign.SAGITTARIUS: "dual", Sign.PISCES: "dual",
@@ -32,15 +32,15 @@ def sign_aspects(sign: Sign) -> list[Sign]:
     immediately adjacent (and vice versa); dual signs aspect the other three
     dual signs.
     """
-    modality = _MODALITY[sign]
+    modality = SIGN_MODALITY[sign]
     index = SIGNS_IN_ORDER.index(sign)
     adjacent = {SIGNS_IN_ORDER[(index - 1) % 12], SIGNS_IN_ORDER[(index + 1) % 12]}
 
     if modality == "movable":
-        return [s for s in SIGNS_IN_ORDER if _MODALITY[s] == "fixed" and s not in adjacent]
+        return [s for s in SIGNS_IN_ORDER if SIGN_MODALITY[s] == "fixed" and s not in adjacent]
     if modality == "fixed":
-        return [s for s in SIGNS_IN_ORDER if _MODALITY[s] == "movable" and s not in adjacent]
-    return [s for s in SIGNS_IN_ORDER if _MODALITY[s] == "dual" and s != sign]
+        return [s for s in SIGNS_IN_ORDER if SIGN_MODALITY[s] == "movable" and s not in adjacent]
+    return [s for s in SIGNS_IN_ORDER if SIGN_MODALITY[s] == "dual" and s != sign]
 
 # House offsets (counted inclusively from the planet's own house) that each
 # planet aspects. The 7th is universal; entries beyond [7] are the "special"

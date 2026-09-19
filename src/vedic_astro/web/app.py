@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
-import httpx
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,7 +35,6 @@ from vedic_astro.divisional_charts import VARGA_REGISTRY
 from vedic_astro.geocode import PlaceMatch, resolve_utc_offset, search_places
 from vedic_astro.matching import compute_match_report
 from vedic_astro.models import SIGNS_IN_ORDER, BirthData, HouseSystem, KundaliChart, NodeType, Planet, Sign
-from vedic_astro.rag.qa import answer_question
 from vedic_astro.rashi_bhava import RASHI_LORD
 from vedic_astro.sign_attributes import SIGN_DIRECTION, SIGN_ELEMENT_NAME, SIGN_ELEMENT_SYMBOL
 
@@ -439,8 +437,6 @@ def _empty_form_context() -> dict[str, object]:
         "candidates": None,
         "candidates_b": None,
         "match_report": None,
-        "question": None,
-        "answer": None,
         "error": None,
     }
 
@@ -608,107 +604,6 @@ def compute_chart(
         context["chart_b"] = chart_b
         context["resolved_place_b"] = b_location.label
         context["match_report"] = compute_match_report(chart_a, chart_b)
-
-    return _render(request, context)
-
-
-@app.post("/ask", response_class=HTMLResponse)
-def ask_question(
-    request: Request,
-    question: str = Form(""),
-    name: str = Form(""),
-    a_date: str = Form(""),
-    a_time: str = Form(""),
-    a_lat: str = Form(""),
-    a_lon: str = Form(""),
-    a_utc_offset: str = Form(""),
-    ayanamsha: str = Form("lahiri"),
-    node_type: str = Form("mean"),
-    house_system: str = Form("whole_sign"),
-    b_name: str = Form(""),
-    b_date: str = Form(""),
-    b_time: str = Form(""),
-    b_lat: str = Form(""),
-    b_lon: str = Form(""),
-    b_utc_offset: str = Form(""),
-) -> HTMLResponse:
-    """Rebuilds the already-resolved chart(s) directly from exact coordinates
-    carried as hidden fields on the chart page - no place search needed here,
-    since the user already resolved their place(s) to get to this point."""
-    context = _empty_form_context()
-
-    try:
-        birth_data_a = BirthData(
-            name=name,
-            birth_date=date.fromisoformat(a_date),
-            birth_time=time.fromisoformat(a_time),
-            latitude=float(a_lat),
-            longitude=float(a_lon),
-            utc_offset_hours=float(a_utc_offset),
-            ayanamsha=ayanamsha,
-            node_type=NodeType(node_type),
-            house_system=HouseSystem(house_system),
-        )
-        chart_a = build_kundali_chart(birth_data_a)
-    except (ValueError, ValidationError) as exc:
-        context["error"] = f"Could not rebuild the chart: {exc}"
-        return _render(request, context, status_code=400)
-
-    match_report = None
-    if b_date and b_time and b_lat and b_lon:
-        try:
-            birth_data_b = BirthData(
-                name=b_name,
-                birth_date=date.fromisoformat(b_date),
-                birth_time=time.fromisoformat(b_time),
-                latitude=float(b_lat),
-                longitude=float(b_lon),
-                utc_offset_hours=float(b_utc_offset),
-                ayanamsha=ayanamsha,
-                node_type=NodeType(node_type),
-                house_system=HouseSystem(house_system),
-            )
-            chart_b = build_kundali_chart(birth_data_b)
-        except (ValueError, ValidationError) as exc:
-            context["error"] = f"Could not rebuild the second person's chart: {exc}"
-            return _render(request, context, status_code=400)
-        context["chart_b"] = chart_b
-        match_report = compute_match_report(chart_a, chart_b)
-
-    now_local = _current_local_datetime(birth_data_a.utc_offset_hours)
-    grid = south_indian_layout(chart_a)
-    navamsa_grid = navamsa_layout(chart_a)
-    context["chart"] = chart_a
-    context["grid"] = grid
-    context["navamsa_grid"] = navamsa_grid
-    context["rashi_drishti"] = _rashi_drishti_rows(chart_a)
-    context["sade_sati_rows"] = _sade_sati_rows(chart_a)
-    context["ashtakavarga_tiles"] = _ashtakavarga_tiles(chart_a)
-    context["bhava_ashtakavarga_rows"] = _bhava_ashtakavarga_rows(chart_a)
-    context["divisional_chart_entries"] = _divisional_chart_entries(chart_a, grid, navamsa_grid)
-    context["current_mahadasha"] = chart_a.dasha.current_mahadasha(now_local)
-    context["current_antardasha"] = chart_a.dasha.current_antardasha(now_local)
-    context["kendra_lords"] = _sign_lords_for_houses(chart_a, [1, 4, 7])
-    context["trikona_lords"] = _sign_lords_for_houses(chart_a, [1, 5, 9])
-    context["shadbala_rows"] = _shadbala_rows(chart_a)
-    context["vimshopaka_rows"] = _vimshopaka_rows(chart_a)
-    context["bhava_bala_rows"] = _bhava_bala_rows(chart_a)
-    context["match_report"] = match_report
-    context["question"] = question
-
-    if not question.strip():
-        context["error"] = "Enter a question to ask."
-        return _render(request, context, status_code=400)
-
-    try:
-        context["answer"] = answer_question(
-            question, chart_a, match_report=match_report, reference_datetime=now_local
-        )
-    except (httpx.HTTPError, RuntimeError) as exc:
-        context["error"] = (
-            f"Could not get an answer from the local AI model (is Ollama running?): {exc}"
-        )
-        return _render(request, context, status_code=502)
 
     return _render(request, context)
 
