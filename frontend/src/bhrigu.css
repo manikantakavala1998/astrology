@@ -1,0 +1,226 @@
+.bhrigu-workspace { min-width: 0; }
+.bhrigu-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 15px 18px; margin-bottom: 16px; }
+.bhrigu-workspace label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; }
+.bhrigu-workspace select, .bhrigu-workspace input { min-height: 36px; font-size: 12px; max-width: 100%; }
+.bhrigu-controls input { width: 230px; }
+.bhrigu-controls .secondary-button { min-height: 36px; padding: 7px 12px; font-size: 12px; }
+.bhrigu-year-buttons { display: flex; gap: 5px; }
+.bhrigu-clock-state { margin-left: auto; color: var(--accent-2); font-size: 11px; align-self: center; }
+.bhrigu-clock-state small { display: block; color: var(--muted); font-size: 9px; margin-top: 4px; }
+.bhrigu-year-range { flex-basis: 100%; margin: 0; color: var(--text); font-size: 11px; }
+.bhrigu-year-range span { margin-inline: 8px; color: var(--accent); }
+.bhrigu-year-range small { color: var(--muted); margin-left: 12px; font-size: 9px; }
+.bhrigu-input-error { flex-basis: 100%; color: #ffc19b; font-size: 12px; margin: 0; }
+.bhrigu-overview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 10px; align-items: stretch; }
+.bhrigu-summary-column { min-width: 0; }
+.bhrigu-workspace .jaimini-panel { padding: 17px; }
+.bhrigu-workspace .rasi-grid { --chart-size: 326px; --chart-center-min: 0px; min-height: 0; width: 100%; height: auto; margin: 0 auto; }
+.bhrigu-workspace .rasi-cell.is-ascendant { background: var(--bg-alt); box-shadow: none; }
+.bhrigu-workspace .chart-legend { text-align: center; font-size: 9px; margin: 10px 0; color: var(--muted); }
+.bhrigu-caption { color: var(--muted); font-size: 10px; line-height: 1.7; margin: 10px 0 0; }
+.bhrigu-year-summary { display: grid; grid-template-columns: 1.3fr .8fr 1fr; gap: 14px; margin-bottom: 15px; }
+.bhrigu-year-summary > div > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 6px; }
+.bhrigu-year-summary strong { font-size: 14px; font-weight: 500; color: var(--accent-2); }
+.bhrigu-workspace .jaimini-table { font-size: 11px; }
+.bhrigu-workspace .jaimini-table td, .bhrigu-workspace .jaimini-table th { padding: 9px 8px; }
+.bhrigu-aspect-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.bhrigu-aspect-controls label { display: flex; align-items: center; gap: 10px; }
+.bhrigu-aspect-controls > span { font-size: 9px; color: var(--muted); }
+.bhrigu-workspace .jaimini-rules { font-size: 11px; line-height: 1.8; }
+.bhrigu-workspace .jaimini-rules details { margin: 10px 0; }
+.bhrigu-variant { margin-bottom: 12px; }
+.bhrigu-variant select { width: fit-content; }
+.bhrigu-rule-status { color: var(--accent-2); font-size: 14px; }
+.bhrigu-timing-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: -8px; }
+.bhrigu-timing-heading p { font-size: 11px; color: var(--muted); margin: 0; }
+.bhrigu-timing-heading button { font-size: 11px; }
+.bhrigu-dasha-path { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.bhrigu-dasha-step { padding: 12px 14px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: #121c30; }
+.bhrigu-dasha-step.is-active { border-color: #b39be960; background: #b39be910; }
+.bhrigu-dasha-step > span { display: block; color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+.bhrigu-dasha-step strong { display: block; font: 21px/1.5 var(--font-editorial); }
+.bhrigu-dasha-step small { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+.bhrigu-timing-table table { width: 100%; font-size: 11px; }
+.bhrigu-timing-table th, .bhrigu-timing-table td { padding: 10px; text-align: left; }
+.bhrigu-timing-table thead th { font-size: 10px; color: var(--muted); font-weight: 500; }
+.bhrigu-active-period, .bhrigu-active-period:nth-child(even) { background: #b39be90b; }
+.bhrigu-active-period > th { border-left: 2px solid var(--accent); font-weight: 500; }
+.bhrigu-timing-table td:nth-last-child(-n+2) { white-space: nowrap; }
+@media (max-width: 1150px) {
+  .bhrigu-overview { grid-template-columns: minmax(0, 320px) minmax(0, 1fr); }
+  .bhrigu-year-summary { grid-template-columns: 1fr 1fr; }
+  .bhrigu-year-summary > div:first-child { grid-column: 1 / -1; }
+  .bhrigu-dasha-step { padding: 10px; }
+}
+@media (max-width: 950px) {
+  .bhrigu-overview { grid-template-columns: minmax(0, 1fr); }
+  .bhrigu-overview > .jaimini-panel:first-child { width: 100%; max-width: 360px; }
+  .bhrigu-year-summary { grid-template-columns: 1.3fr .8fr 1fr; }
+  .bhrigu-year-summary > div:first-child { grid-column: auto; }
+  .bhrigu-dasha-path { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 540px) {
+  .bhrigu-controls, .bhrigu-workspace .jaimini-panel { padding: 12px; }
+  .bhrigu-controls { gap: 10px; }
+  .bhrigu-controls > label:nth-of-type(2) { flex-basis: 100%; }
+  .bhrigu-controls input { width: 100%; min-width: 0; }
+  .bhrigu-clock-state { margin-left: 0; }
+  .bhrigu-year-range { font-size: 10px; line-height: 1.8; }
+  .bhrigu-year-range small { display: block; margin: 0; }
+  .bhrigu-year-summary { grid-template-columns: 1fr 1fr; }
+  .bhrigu-year-summary > div:first-child { grid-column: 1 / -1; }
+  .bhrigu-workspace .jaimini-table { min-width: 450px; }
+  .bhrigu-timing-table table { min-width: 740px; }
+  .bhrigu-dasha-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bhrigu-dasha-step:last-child { grid-column: 1 / -1; }
+  .bhrigu-workspace .rasi-sign { font-size: 8px !important; }
+  .bhrigu-workspace .rasi-house { font-size: 7px; }
+  .bhrigu-workspace .rasi-planets { font-size: 10px; }
+  .bhrigu-workspace .planet-degree { font-size: 7px; }
+  .bhrigu-workspace .rasi-grid { --chart-center-min: 0px; min-height: 0; }
+}
+
+/* Approved reference: compact header, two equal panels, full-width tables. */
+.bhrigu-preview-view .celestial-header { min-height: 96px; padding: 10px 16px 9px; }
+.bhrigu-preview-view .hero-copy h1 { font-size: 37px; line-height: 1.12; margin: 2px 0 3px; }
+.bhrigu-preview-view .hero-description { font-size: 13px; margin-top: 3px; }
+.bhrigu-preview-view .eyebrow { font: 600 12px var(--font-editorial); letter-spacing: 1px; margin-bottom: 3px; }
+.bhrigu-preview-view .profile-label { display: none; }
+.bhrigu-preview-view .workspace-content { padding: 0 14px 14px; }
+.bhrigu-preview-view .birth-ribbon { min-height: 40px; padding: 5px 9px; margin-bottom: 8px; border-radius: 5px; gap: 5px 0; font-size: 12px; }
+.bhrigu-preview-view .birth-ribbon > span { padding: 2px 10px; }
+.bhrigu-preview-view .birth-ribbon .bhrigu-name-pill { color: var(--text); font: 600 17px var(--font-editorial); margin-right: 8px; padding: 5px 9px; border: 1px solid var(--border-strong); border-radius: 4px; }
+.bhrigu-preview-view .birth-ribbon .node-setting, .bhrigu-preview-view .birth-ribbon .house-setting { display: none; }
+.bhrigu-preview-view .ribbon-edit { min-height: 30px; padding: 5px 12px; font-size: 11px; border-radius: 3px; }
+/* The sidebar deliberately has NO page-specific overrides any more. The
+   active-item colour, the group-label styling and the active-item chevron
+   were each overridden here, so the whole nav restyled itself depending on
+   which page happened to be open. They now live unconditionally in
+   styles.css. The rule that hid every non-Bhrigu group heading is gone too -
+   headings should not disappear on some pages. */
+.bhrigu-workspace .astro-panel { border-radius: 5px; border-color: #334765; }
+.bhrigu-workspace .jaimini-panel { position: relative; padding: 9px 12px; margin-bottom: 9px; }
+.bhrigu-workspace .jaimini-panel h2 { font-size: 21px; line-height: 1.2; margin-bottom: 8px; }
+.bhrigu-controls { padding: 9px 12px; gap: 8px; margin-bottom: 9px; align-items: center; }
+.bhrigu-controls > label { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 12px; }
+.bhrigu-controls select { width: 195px; }
+.bhrigu-controls select, .bhrigu-controls input { min-height: 30px; height: 30px; font-size: 12px; padding: 3px 8px; }
+.bhrigu-controls .secondary-button { height: 30px; min-height: 30px; padding: 4px 8px; border-radius: 4px; }
+.bhrigu-date-control { margin-left: 12px; }
+.bhrigu-date-control { display: flex; align-items: center; gap: 8px; }
+.bhrigu-date-control label { font-size: 12px; color: var(--text); white-space: nowrap; }
+.bhrigu-date-control > span { position: relative; }
+.bhrigu-date-control button { padding: 0; min-height: 0; border: 0; background: transparent; color: var(--muted); }
+.bhrigu-date-control .bhrigu-calendar-input { position: absolute; width: 1px; height: 1px; min-height: 0; opacity: 0; padding: 0; pointer-events: none; }
+.bhrigu-date-control > span, .bhrigu-time-control > span:not(.sr-only) { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); border-radius: 4px; padding-left: 8px; background: #101b30; }
+.bhrigu-date-control input, .bhrigu-time-control input { border: 0; background: transparent; width: 142px; }
+.bhrigu-time-control input { width: 115px; }
+.bhrigu-controls .bhrigu-today { min-height: 31px; padding: 4px 18px; border-radius: 4px; font-size: 12px; }
+.bhrigu-clock-state { margin-left: 5px; font-size: 12px; white-space: nowrap; }
+.bhrigu-clock-state.is-live { color: #69e894; }
+.bhrigu-year-range { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; font-size: 11px; color: var(--muted); }
+.bhrigu-year-range span { margin-inline: 3px; }
+.bhrigu-year-range small { margin-left: auto; font-size: 9px; }
+.bhrigu-natal-grid { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(0, 1fr)); gap: 1px; border: 1px solid #415775; background: #344963; width: 100%; max-width: var(--chart-size, 724px); margin: 0 auto; height: auto; max-height: 440px; aspect-ratio: var(--chart-aspect, 1.65); min-height: min(440px, calc((var(--natal-slots, 3) * 14px + 28px) * 4)); }
+.bhrigu-natal-cell { background: #0d192c; padding: 5px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.bhrigu-natal-sign { color: var(--accent-2); font-size: 11px; line-height: 1.3; margin-bottom: 2px; }
+.bhrigu-natal-cell strong { font-size: 12px; line-height: 1.1; font-weight: 600; }
+.bhrigu-retro { font-size: 10px; color: var(--muted); }
+.bhrigu-natal-asc { color: #eee8fc; }
+.bhrigu-natal-center { position: absolute; inset: 25% 25%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; background: #0d192c; border: 1px solid #344963; padding: 6px; }
+.bhrigu-natal-center strong { font: 600 20px var(--font-editorial); color: var(--accent-2); }
+.bhrigu-natal-center span { font-size: 12px; color: #b8cdec; }
+.bhrigu-summary-column > .jaimini-panel { height: calc(100% - 9px); }
+.bhrigu-summary-column > .jaimini-panel { display: flex; flex-direction: column; }
+.bhrigu-summary-column > .jaimini-panel > .jaimini-rules { margin-top: auto; }
+.bhrigu-year-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 0 0 9px; }
+.bhrigu-year-summary > div, .bhrigu-year-summary > div:first-child { grid-column: auto; padding: 8px; text-align: center; border: 1px solid #334765; border-radius: 5px; background: #101b2d; }
+.bhrigu-year-summary > div > span { font-size: 11px; margin-bottom: 2px; }
+.bhrigu-year-summary strong { font: 600 20px var(--font-editorial); }
+.bhrigu-occupants, .bhrigu-cycle-note { margin: 8px 0; color: #b8cdec; font-size: 11px; }
+.bhrigu-workspace .jaimini-table { font-size: 11px; border: 1px solid #334765; }
+.bhrigu-workspace .jaimini-table th, .bhrigu-workspace .jaimini-table td { padding: 5px 9px; border: 1px solid #2b3d57; }
+.bhrigu-workspace .jaimini-table thead th { font-size: 10px; background: #17233a; color: #d2daf8; }
+.bhrigu-workspace .jaimini-rules { margin-top: 8px; padding: 5px 8px; border: 1px solid #334765; border-radius: 4px; font-size: 11px; }
+.bhrigu-aspect-controls { position: absolute; top: 8px; right: 12px; margin: 0; }
+.bhrigu-aspect-controls label { font-size: 10px; }
+.bhrigu-aspect-controls select { min-height: 26px; font-size: 10px; padding: 2px 7px; }
+.bhrigu-aspect-rules { font-size: 9px; color: var(--muted); margin-top: 4px; }
+.bhrigu-aspect-rules summary { cursor: pointer; }
+.bhrigu-level-badge { position: absolute; top: 8px; right: 12px; font-size: 11px; color: #101323; padding: 4px 10px; border-radius: 4px; background: var(--accent); }
+.bhrigu-timing-heading { margin: -3px 0 0; }
+.bhrigu-timing-heading p { font-size: 11px; }
+.bhrigu-dasha-path { gap: 22px; margin: 9px 0; }
+.bhrigu-dasha-step { position: relative; text-align: center; padding: 5px 7px; border-radius: 4px; }
+.bhrigu-dasha-step:not(:last-child)::after { content: '→'; color: #d9c7ff; position: absolute; right: -20px; top: 20px; font-size: 19px; }
+.bhrigu-dasha-step.is-active { border-color: #b496ec; background: linear-gradient(120deg, #3b305d99, #25294399); }
+.bhrigu-dasha-step > span { color: #dac7fe; font-size: 10px; margin-bottom: 0; }
+.bhrigu-dasha-step strong { font: 600 16px/1.4 var(--font-sans); }
+.bhrigu-dasha-step small { color: #c4d3f6; font-size: 10px; margin-top: 0; }
+.bhrigu-timing-table table { border: 1px solid #334765; font-size: 11px; }
+.bhrigu-timing-table th, .bhrigu-timing-table td { padding: 3px 9px; border: 1px solid #2b3d57; line-height: 1.45; }
+.bhrigu-timing-table thead th { background: #17233a; color: #d2daf8; }
+.bhrigu-active-period > th { border-left: 4px solid #b994e9; }
+.bhrigu-dasha-footer { display: flex; align-items: start; gap: 12px; margin-top: 9px; }
+.bhrigu-dasha-footer .jaimini-rules { flex: 1; min-width: 0; margin: 0; }
+.bhrigu-dasha-footer > button { flex-shrink: 0; font-size: 10px; padding-block: 6px; }
+.bhrigu-prediction-intro { margin: 0 0 10px; font-size: 11px; color: var(--muted); }
+.bhrigu-prediction-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bhrigu-prediction-cards article { min-width: 0; border: 1px solid #2b3d57; border-radius: 4px; padding: 10px; background: #101b2d; }
+.bhrigu-predictions h3 { margin: 0 0 6px; font-size: 13px; color: var(--accent-2); }
+.bhrigu-prediction-cards p, .bhrigu-prana-reading { margin: 0; font-size: 12px; line-height: 1.65; color: #c4d3ed; }
+.bhrigu-prediction-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; }
+.bhrigu-prediction-tags > span { color: var(--muted); }
+.bhrigu-prediction-timing { margin-top: 12px; padding-top: 10px; border-top: 1px solid #2b3d57; }
+.bhrigu-prediction-date { margin: 0 0 6px; font-size: 10px; color: var(--muted); }
+.bhrigu-predictions .jaimini-rules p { font-size: 11px; line-height: 1.6; }
+.bhrigu-predictions .jaimini-table { min-width: 700px; table-layout: fixed; }
+.bhrigu-predictions .jaimini-table th { width: 22%; }
+.bhrigu-predictions .jaimini-table td { vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 1150px) {
+  .bhrigu-overview { grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); }
+  .bhrigu-controls { flex-wrap: wrap; }
+  .bhrigu-year-range small { flex-basis: 100%; margin: 0; }
+  .bhrigu-natal-cell strong { font-size: 10px; }
+  .bhrigu-natal-center strong { font-size: 17px; }
+}
+@media (max-width: 950px) {
+  .bhrigu-overview { grid-template-columns: minmax(0, 1fr); }
+  .bhrigu-overview > .jaimini-panel:first-child { max-width: none; }
+  .bhrigu-dasha-path { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bhrigu-dasha-step strong { font-size: 13px; }
+}
+@media (max-width: 780px) {
+  .bhrigu-prediction-cards { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .bhrigu-preview-view .celestial-header { padding-inline: 14px; }
+  .bhrigu-preview-view .hero-copy h1 { font-size: 29px; }
+  .bhrigu-preview-view .birth-ribbon .bhrigu-name-pill { flex-basis: 100%; margin: 0 0 4px; }
+  .bhrigu-dasha-path { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .bhrigu-dasha-step:nth-child(3)::after { display: none; }
+}
+@media (max-width: 540px) {
+  .bhrigu-controls > label { font-size: 11px; }
+  .bhrigu-controls > label:nth-of-type(2) { flex-basis: auto; }
+  .bhrigu-controls select { width: 155px; }
+  .bhrigu-date-control { margin-left: 0; }
+  .bhrigu-date-control > span { width: auto; }
+  .bhrigu-controls .bhrigu-date-control input { width: 122px; }
+  .bhrigu-controls .bhrigu-time-control input { width: 109px; }
+  .bhrigu-natal-grid { min-height: min(440px, calc((var(--natal-slots, 3) * 12px + 24px) * 4)); }
+  .bhrigu-natal-sign { font-size: 8px; }
+  .bhrigu-natal-cell { padding: 4px 2px; }
+  .bhrigu-natal-cell strong { font-size: 9px; }
+  .bhrigu-natal-center strong { font-size: 16px; }
+  .bhrigu-natal-center span { font-size: 10px; }
+  .bhrigu-year-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .bhrigu-year-summary > div { padding: 5px 3px; }
+  .bhrigu-year-summary > div > span { font-size: 9px; }
+  .bhrigu-year-summary strong { font-size: 17px; }
+  .bhrigu-aspect-controls { position: static; margin: 0 0 7px; }
+  .bhrigu-level-badge { position: static; display: inline-block; margin-bottom: 5px; }
+  .bhrigu-dasha-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bhrigu-dasha-step:nth-child(2n)::after, .bhrigu-dasha-step:nth-child(3)::after { display: none; }
+  .bhrigu-dasha-step:last-child { grid-column: 1 / -1; }
+  .bhrigu-dasha-footer { flex-wrap: wrap; }
+  .bhrigu-dasha-footer .jaimini-rules { flex-basis: 100%; }
+}

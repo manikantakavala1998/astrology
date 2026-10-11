@@ -51,6 +51,8 @@ def _subdivide(lord: Planet, start: datetime, years: float) -> list[DashaSubPeri
         sub_end = cursor + _years_to_timedelta(sub_years)
         sub_periods.append(DashaSubPeriod(planet=sub_lord, start=cursor, end=sub_end))
         cursor = sub_end
+    # Fractional microseconds can accumulate; preserve the parent endpoint.
+    sub_periods[-1].end = start + _years_to_timedelta(years)
     return sub_periods
 
 
@@ -72,7 +74,9 @@ def compute_deeper_sub_periods(
     return sub_periods
 
 
-def compute_vimshottari_dasha(moon_longitude: float, birth_datetime: datetime) -> VimshottariDasha:
+def compute_vimshottari_dasha(
+    moon_longitude: float, birth_datetime: datetime, *, until: datetime | None = None,
+) -> VimshottariDasha:
     moon_longitude = moon_longitude % 360
     nakshatra = nakshatra_for_longitude(moon_longitude)
     elapsed_within_nakshatra = moon_longitude - (nakshatra.index - 1) * NAKSHATRA_SPAN
@@ -86,7 +90,8 @@ def compute_vimshottari_dasha(moon_longitude: float, birth_datetime: datetime) -
     start_index = DASHA_LORD_CYCLE.index(first_lord)
     periods: list[DashaPeriod] = []
     cursor = first_start
-    for offset in range(9):
+    offset = 0
+    while offset < 9 or (until is not None and cursor < until):
         lord = DASHA_LORD_CYCLE[(start_index + offset) % 9]
         lord_years = DASHA_YEARS[lord]
         period_end = cursor + _years_to_timedelta(lord_years)
@@ -99,5 +104,6 @@ def compute_vimshottari_dasha(moon_longitude: float, birth_datetime: datetime) -
             )
         )
         cursor = period_end
+        offset += 1
 
     return VimshottariDasha(periods=periods)

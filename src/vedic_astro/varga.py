@@ -1,4 +1,4 @@
-"""Divisional (varga) charts. Navamsa (D9) and Hora (D2); more are a later phase."""
+"""Navamsa (D9) and Hora (D2); see divisional_charts.py for the full registry."""
 
 from __future__ import annotations
 

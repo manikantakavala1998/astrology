@@ -50,6 +50,7 @@ class PlanetLabel:
     retrograde: bool
     dignity_suffix: str  # "" | "E" | "D"
     color_class: str
+    natal_degree: float = 0.0
 
 
 @dataclass
@@ -69,6 +70,7 @@ class AshtakavargaCell:
     is_natal_occupied: bool
     band_class: str = ""
     band_label: str = ""
+    house: int | None = None
 
 
 def _build_planet_label(planet_position: PlanetPosition) -> PlanetLabel:
@@ -77,6 +79,7 @@ def _build_planet_label(planet_position: PlanetPosition) -> PlanetLabel:
         retrograde=planet_position.retrograde,
         dignity_suffix=_DIGNITY_SUFFIX.get(planet_position.dignity, ""),
         color_class=PLANET_COLOR_CLASS[planet_position.planet],
+        natal_degree=planet_position.degree_in_sign,
     )
 
 
@@ -229,10 +232,12 @@ def ashtakavarga_mini_grid(
     bindus_by_sign: dict[Sign, int],
     natal_signs: set[Sign],
     band_fn: Callable[[int], tuple[str, str]],
+    *,
+    ascendant_sign: Sign | None = None,
 ) -> list[list[AshtakavargaCell | None]]:
     """One of the 3x3 screenshot-style Ashtakavarga mini-charts: the same
     fixed South Indian grid, showing a bindu count per sign instead of
-    planet labels, with signs occupied in the natal D1 chart highlighted.
+    planet labels, with uniform borders for every sign.
 
     `band_fn` maps a bindu count to a (css_class, label) strength band -
     callers pass a scale-appropriate function, since the SAV grid (0-56
@@ -255,6 +260,7 @@ def ashtakavarga_mini_grid(
                     is_natal_occupied=sign in natal_signs,
                     band_class=band_class,
                     band_label=band_label,
+                    house=whole_sign_house(sign, ascendant_sign) if ascendant_sign is not None else None,
                 )
             )
         grid.append(rendered_row)

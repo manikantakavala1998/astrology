@@ -1,5 +1,7 @@
 from datetime import date, datetime, time
 
+import pytest
+
 from vedic_astro.chart import build_kundali_chart
 from vedic_astro.models import BirthData, NakshatraPlacement, Planet, PlanetPosition, Sign
 from vedic_astro.padma_chakra import compute_badhaka, compute_padma_chakra_years
@@ -99,3 +101,37 @@ def test_house_from_lagna_cycles_every_12_years() -> None:
     assert by_age[12].house_from_lagna == 12
     assert by_age[13].house_from_lagna == 1
     assert by_age[25].house_from_lagna == 1
+
+
+@pytest.mark.parametrize("lagna,age,annual_house,lord,d12_sign,overlay", [
+    (Sign.GEMINI, 27, 3, Planet.SUN, Sign.CANCER, 2),
+    (Sign.LEO, 11, 11, Planet.MERCURY, Sign.ARIES, 9),
+    (Sign.LEO, 26, 2, Planet.MERCURY, Sign.ARIES, 9),
+    (Sign.SAGITTARIUS, 25, 1, Planet.JUPITER, Sign.CAPRICORN, 2),
+    (Sign.SAGITTARIUS, 41, 5, Planet.MARS, Sign.LIBRA, 11),
+    (Sign.SAGITTARIUS, 50, 2, Planet.SATURN, Sign.GEMINI, 7),
+    (Sign.SAGITTARIUS, 24, 12, Planet.MARS, Sign.AQUARIUS, 3),
+    (Sign.SAGITTARIUS, 25, 1, Planet.JUPITER, Sign.PISCES, 4),
+    (Sign.CAPRICORN, 10, 10, Planet.VENUS, Sign.GEMINI, 6),
+    (Sign.CAPRICORN, 17, 5, Planet.VENUS, Sign.GEMINI, 6),
+    (Sign.CAPRICORN, 19, 7, Planet.MOON, Sign.TAURUS, 5),
+    (Sign.CAPRICORN, 25, 1, Planet.SATURN, Sign.TAURUS, 5),
+    (Sign.TAURUS, 23, 11, Planet.JUPITER, Sign.TAURUS, 1),
+    (Sign.TAURUS, 26, 2, Planet.MERCURY, Sign.CANCER, 3),
+    (Sign.TAURUS, 27, 3, Planet.MOON, Sign.ARIES, 12),
+    (Sign.TAURUS, 29, 5, Planet.MERCURY, Sign.CANCER, 3),
+])
+def test_supplied_padma_examples_map_d12_signs_into_d1(
+    lagna, age, annual_house, lord, d12_sign, overlay
+) -> None:
+    # These fixtures isolate the slides' declared D12 signs. Synthetic natal
+    # degrees produce those signs; they do not reconstruct the example births.
+    # A deliberately unrelated planet.house also prevents D12 house copying.
+    planets = [_planet(p, Sign.ARIES, house=12) for p in Planet if p != lord]
+    planets.append(_planet(lord, d12_sign, house=12, degree_in_sign=1.0))
+    asc_longitude = _SIGN_INDEX[lagna] * 30 + 1.0
+    row = compute_padma_chakra_years(lagna, asc_longitude, planets, datetime(2000, 1, 1), max_age=age)[-1]
+    assert row.house_from_lagna == annual_house
+    assert row.year_lord == lord
+    assert row.year_lord_dwadasamsa_sign == d12_sign
+    assert row.superimposed_house_from_lagna == overlay

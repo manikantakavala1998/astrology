@@ -1,21 +1,8 @@
-"""Jaimini astrology: Chara Karakas and Chara Dasha.
+"""Degree-ranked karakas and Chara Dasha (K. N. Rao convention).
 
-Jaimini is a distinct branch of Vedic astrology from everything else in this
-engine (which is all Parashari-based: Vimshottari Dasha, whole-sign houses,
-etc.). Only the two most well-established Jaimini techniques are implemented
-here - Chara Karakas and Chara Dasha - using the standard classical method.
-Several other Jaimini techniques (Sthira Karakas, Sthira Dasha, Yogada
-graha, Kevala graha) were deliberately left out: unlike the Ashtakoot kootas
-elsewhere in this engine (where the concept was clear and only fine
-point-values were uncertain), confidence in the exact definitions of those
-four was too low to implement responsibly.
-
-ACCURACY NOTE: Chara Dasha's starting sign is taken here as the Ascendant
-(Lagna) - the most common simplification used by most practical Jaimini
-software. Some Jaimini methods instead compare the strength of the Lagna
-and the 7th house to choose the starting sign; that alternative is not
-implemented here. Cross-check against a trusted Jaimini source before
-relying on this for a real decision, same as the Ashtakoot matching module.
+Sign aspects, arudhas, Argala and other declared conventions are composed
+in jaimini_report.py. Jaimini uses whole signs, independent of bhava cusps.
+See docs/jaimini.md for calculation conventions and verification sources.
 """
 
 from __future__ import annotations
@@ -28,8 +15,7 @@ from vedic_astro.rashi_bhava import RASHI_LORD
 DAYS_PER_YEAR = 365.2425  # average Gregorian year, same convention as dasha.py
 
 # The 7 classical grahas used for Chara Karakas - Rahu/Ketu are excluded,
-# the standard scheme (an 8-karaka scheme including Rahu also exists but is
-# not universally used, so it's not implemented here).
+# An optional eighth role includes Rahu with reversed advancement.
 _KARAKA_PLANETS = (
     Planet.SUN, Planet.MOON, Planet.MARS, Planet.MERCURY,
     Planet.JUPITER, Planet.VENUS, Planet.SATURN,
@@ -40,18 +26,40 @@ _KARAKA_NAMES = (
     "Putrikaraka", "Gnatikaraka", "Darakaraka",
 )
 
+# Odd-footed is NOT zodiacal odd/even parity.
+ODD_FOOTED = {Sign.ARIES, Sign.TAURUS, Sign.GEMINI, Sign.LIBRA, Sign.SCORPIO, Sign.SAGITTARIUS}
 
-def compute_chara_karakas(planets: list[PlanetPosition]) -> list[CharaKaraka]:
-    """Ranks the 7 classical grahas by degree-within-sign, highest first -
-    Atmakaraka (highest) through Darakaraka (lowest)."""
+
+def step(sign: Sign, offset: int) -> Sign:
+    return SIGNS_IN_ORDER[(SIGNS_IN_ORDER.index(sign) + offset) % 12]
+
+
+def chara_direction(sign: Sign) -> int:
+    """Period order is determined by the ninth sign from the starting sign."""
+    return 1 if step(sign, 8) in ODD_FOOTED else -1
+
+
+def compute_chara_karakas(planets: list[PlanetPosition], count: int = 7) -> list[CharaKaraka]:
+    """Seven excludes nodes; eight includes Rahu ranked by 30 - natal degree.
+
+    Exact ties share the preceding rank and leave the next role vacant. Full
+    unrounded degrees are used, not displayed arcminute values.
+    """
+    if count not in (7, 8):
+        raise ValueError("Choose seven or eight karakas.")
+    names = _KARAKA_NAMES if count == 7 else (*_KARAKA_NAMES[:4], "Pitrikaraka", *_KARAKA_NAMES[4:])
+    eligible = (*_KARAKA_PLANETS, Planet.RAHU) if count == 8 else _KARAKA_PLANETS
+    def advancement(p: PlanetPosition) -> float:
+        return 30 - p.degree_in_sign if p.planet == Planet.RAHU else p.degree_in_sign
     by_degree = sorted(
-        (p for p in planets if p.planet in _KARAKA_PLANETS),
-        key=lambda p: p.degree_in_sign,
+        (p for p in planets if p.planet in eligible),
+        key=advancement,
         reverse=True,
     )
     return [
-        CharaKaraka(planet=p.planet, karaka=name, degree_in_sign=p.degree_in_sign)
-        for p, name in zip(by_degree, _KARAKA_NAMES)
+        CharaKaraka(planet=p.planet, karaka=names[sum(advancement(q) > advancement(p) for q in by_degree)],
+                    degree_in_sign=p.degree_in_sign)
+        for p in by_degree
     ]
 
 
@@ -60,36 +68,26 @@ def _years_to_timedelta(years: float) -> timedelta:
 
 
 def _sign_duration_years(sign: Sign, lord_sign: Sign) -> float:
-    """Count from `sign` to `lord_sign`: forward if `sign` is odd (1-indexed
-    zodiac position), backward if even. The inclusive count (1-12) is the
-    duration in years, except a planet in its own sign (count=1) uses the
-    classical exception of 12 years instead.
-    """
+    """Directed inclusive count minus one; lord in own sign gives 12 years."""
     sign_index = SIGNS_IN_ORDER.index(sign)
     lord_index = SIGNS_IN_ORDER.index(lord_sign)
-    is_odd = sign_index % 2 == 0  # 0-indexed even position = 1-indexed odd sign
-
-    if is_odd:
-        count = ((lord_index - sign_index) % 12) + 1
-    else:
-        count = ((sign_index - lord_index) % 12) + 1
-
-    return 12.0 if count == 1 else float(count)
+    distance = ((lord_index - sign_index) if sign in ODD_FOOTED else (sign_index - lord_index)) % 12
+    return float(distance or 12)
 
 
 def compute_chara_dasha(
     ascendant_sign: Sign, planets: list[PlanetPosition], birth_datetime: datetime
 ) -> list[CharaDashaPeriod]:
-    """One full 12-sign Chara Dasha cycle, starting from the Ascendant sign,
-    proceeding forward through the zodiac. Mahadasha level only (no
-    antardasha sub-periods in this pass).
+    """One cycle from Lagna, ninth-sign direction, seven classical lords.
+
+    K. N. Rao convention omits exaltation/debilitation duration corrections.
     """
     ascendant_index = SIGNS_IN_ORDER.index(ascendant_sign)
     periods: list[CharaDashaPeriod] = []
     cursor = birth_datetime
 
     for offset in range(12):
-        sign = SIGNS_IN_ORDER[(ascendant_index + offset) % 12]
+        sign = SIGNS_IN_ORDER[(ascendant_index + chara_direction(ascendant_sign) * offset) % 12]
         lord = RASHI_LORD[sign]
         lord_position = next(p for p in planets if p.planet == lord)
         years = _sign_duration_years(sign, lord_position.sign)

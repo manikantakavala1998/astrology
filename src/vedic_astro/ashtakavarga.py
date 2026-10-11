@@ -1,9 +1,10 @@
 """Ashtakavarga: the Parasara Bhinnashtakavarga (BAV) / Samudaya
 Ashtakavarga (SAV) / Bhava Ashtakavarga scoring system.
 
-Only the Parasara method is implemented - the user will supply a source
-before any "Varahamihira" method (a claimed alternate contribution table)
-is attempted; no such table is guessed here.
+The seven contribution tables also match Varahamihira's Brihat Jataka
+IX.1–7 in N. Chidambaram Aiyar's 1905 translation (the complete source is
+packaged in data/brihat_jataka_1905.json). They are reused by the Brihat
+Jataka report; a different contribution table is not claimed.
 
 The BAV contribution table below was cross-checked cell-by-cell (all 8x7
 contributor/scored-planet house-lists) against two independent sources,
@@ -11,11 +12,9 @@ and against the well-known fixed per-planet totals (Sun 48, Moon 49, Mars
 39, Mercury 54, Jupiter 56, Venus 52, Saturn 39, summing to 337 - the SAV
 invariant this module's tests check) before being treated as final.
 
-The Ascendant/Lagna's OWN individual BAV chart (a common addition in
-modern software, shown as a "pending a source" placeholder in the UI) has
-no verified contribution table and is intentionally NOT computed here -
-only Lagna acting as a *contributor* to the 7 planets' charts (which is
-solid, and is in the table below) is implemented.
+Lagna's own BAV uses the favorable contribution lists in Brihat Parasara
+Hora Shastra, chapter 66, verses 65-68. It totals 49 points and is displayed
+separately; SAV remains the sum of the seven planetary BAVs (337 points).
 """
 
 from __future__ import annotations
@@ -113,6 +112,24 @@ BAV_FIXED_TOTALS: dict[Planet, int] = {
     Planet.JUPITER: 56, Planet.VENUS: 52, Planet.SATURN: 39,
 }
 
+# BPHS 66.65-68, favorable (rekha/sthana) positions, counted inclusively
+# from each contributor's natal sign. The UI calls favorable points bindus,
+# consistently with its existing South Indian terminology.
+# Primary text: https://www.lakshminarayanlenasia.com/articles/BrihatParasaraHoraSastra.pdf
+# PDF page 129. These are Lagna's recipient rules, not simply the Lagna
+# contributor column from the seven planetary tables.
+LAGNA_BAV_CONTRIBUTION_TABLE: dict[Contributor, frozenset[int]] = {
+    Planet.SUN: frozenset({3, 4, 6, 10, 11, 12}),
+    Planet.MOON: frozenset({3, 6, 10, 11, 12}),
+    Planet.MARS: frozenset({1, 3, 6, 10, 11}),
+    Planet.MERCURY: frozenset({1, 2, 4, 6, 8, 10, 11}),
+    Planet.JUPITER: frozenset({1, 2, 4, 5, 6, 7, 9, 10, 11}),
+    Planet.VENUS: frozenset({1, 2, 3, 4, 5, 8, 9}),
+    Planet.SATURN: frozenset({1, 3, 4, 6, 10, 11}),
+    LAGNA: frozenset({3, 6, 10, 11}),
+}
+LAGNA_BAV_FIXED_TOTAL = 49
+
 
 def _sign_at_house_offset(from_sign: Sign, house: int) -> Sign:
     start_index = SIGNS_IN_ORDER.index(from_sign)
@@ -141,13 +158,35 @@ def bhinnashtakavarga(
 
 
 def samudaya_ashtakavarga(planets: list[PlanetPosition], ascendant_sign: Sign) -> dict[Sign, int]:
-    """SAV: sum of the 7 planets' BAV per sign (Lagna's own BAV, not
-    computed here, is excluded - matches the classical 337-point total)."""
+    """SAV: sum of the seven planetary BAVs, excluding Lagna's own BAV,
+    preserving the classical 337-point total."""
     sav: dict[Sign, int] = dict.fromkeys(SIGNS_IN_ORDER, 0)
     for planet in ASHTAKAVARGA_PLANETS:
         for sign, bindus in bhinnashtakavarga(planets, ascendant_sign, planet).items():
             sav[sign] += bindus
     return sav
+
+
+def lagna_ashtakavarga_contributions(
+    planets: list[PlanetPosition], ascendant_sign: Sign,
+) -> dict[Contributor, dict[Sign, int]]:
+    """Lagna Prastara: each of eight contributors gives 0 or 1 per sign."""
+    contributor_signs = _contributor_signs(planets, ascendant_sign)
+    contributions: dict[Contributor, dict[Sign, int]] = {}
+    for contributor, houses in LAGNA_BAV_CONTRIBUTION_TABLE.items():
+        favorable_signs = {
+            _sign_at_house_offset(contributor_signs[contributor], house) for house in houses
+        }
+        contributions[contributor] = {
+            sign: int(sign in favorable_signs) for sign in SIGNS_IN_ORDER
+        }
+    return contributions
+
+
+def lagna_ashtakavarga(planets: list[PlanetPosition], ascendant_sign: Sign) -> dict[Sign, int]:
+    """Lagna's unreduced BAV: 0-8 favorable points per sign, total 49."""
+    contributions = lagna_ashtakavarga_contributions(planets, ascendant_sign)
+    return {sign: sum(row[sign] for row in contributions.values()) for sign in SIGNS_IN_ORDER}
 
 
 def _interval_overlap(a_start: float, a_end: float, b_start: float, b_end: float) -> float:
@@ -214,6 +253,7 @@ def compute_ashtakavarga(
     sav = samudaya_ashtakavarga(planets, ascendant_sign)
     return AshtakavargaSet(
         bav_by_planet=bav_by_planet,
+        lagna_bav=lagna_ashtakavarga(planets, ascendant_sign),
         sav=sav,
         bhava_ashtakavarga=bhava_ashtakavarga(sav, bhava_chalit_cusps),
     )

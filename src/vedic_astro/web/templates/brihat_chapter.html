@@ -1,0 +1,6 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Brihat Jataka · {{ chapter.title }}</title>
+<link rel="stylesheet" href="/static/style.css"><style>main{max-width:850px;margin:32px auto;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:16px/1.8 Georgia,serif}</style></head>
+<body><main><a href="/">← Return to app</a><h1>{{ chapter.number }}. {{ chapter.title }}</h1><p>{{ book.edition }}</p><p>{{ book.notice }}</p>
+{% if chapter.edition_addition %}<p>This chapter is a later addition identified by the edition’s conclusion.</p>{% endif %}
+<nav aria-label="Book chapters">{% if chapter.number > 1 %}<a href="/brihat-jataka/book/{{ chapter.number-1 }}">Previous chapter</a>{% endif %} · {% if chapter.number < 28 %}<a href="/brihat-jataka/book/{{ chapter.number+1 }}">Next chapter</a>{% endif %}</nav>
+<pre>{{ chapter.text }}</pre><a href="{{ book.url }}" target="_blank" rel="noopener noreferrer">View original scanned edition</a></main></body></html>

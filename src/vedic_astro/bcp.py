@@ -54,6 +54,9 @@ examples include a case where the rule does not fit. This module returns
 which years the rule flags; it does not claim those years predict death.
 """
 
+# Also checked against the supplied BCP-CycleLords slides:
+# https://www.scribd.com/document/549460315/BCP-CycleLords
+# Its cycle-ruler sign is a second Lagna; relative houses retain that base.
 from __future__ import annotations
 
 from vedic_astro.models import (

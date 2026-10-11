@@ -1,8 +1,5 @@
-"""Vimshopaka Bala: a 20-point divisional-chart strength score, at the
-Shadvarga (6-chart) and Saptavarga (7-chart) levels only - Dashavarga and
-Shodashavarga need divisional charts this app doesn't have built (D16,
-D60, and more), so those two variants aren't offered, same "not guessed"
-posture as the held divisional charts.
+"""Vimshopaka Bala: four 20-point divisional-chart strength schemes:
+Shadvarga (6), Saptavarga (7), Dashavarga (10), Shodashavarga (16).
 
 Formula (BPHS Ch.7, verified by reproducing the text's own worked example
 exactly - see tests/test_vimshopaka_bala.py):
@@ -34,6 +31,22 @@ SHADVARGA_WEIGHTS: dict[str, float] = {"D1": 6.0, "D2": 2.0, "D3": 4.0, "D9": 5.
 SAPTAVARGA_CODES = ["D1", "D2", "D3", "D7", "D9", "D12", "D30"]
 SAPTAVARGA_WEIGHTS: dict[str, float] = {
     "D1": 5.0, "D2": 2.0, "D3": 3.0, "D7": 1.0, "D9": 2.5, "D12": 4.5, "D30": 2.0,
+}
+
+# BPHS Ch.7 v.20: Rasi 3, Shashtiamsa 5, the other eight 1.5 each.
+DASHAVARGA_CODES = ["D1", "D2", "D3", "D7", "D9", "D10", "D12", "D16", "D30", "D60"]
+DASHAVARGA_WEIGHTS: dict[str, float] = {
+    code: 3.0 if code == "D1" else 5.0 if code == "D60" else 1.5
+    for code in DASHAVARGA_CODES
+}
+
+# BPHS Ch.7 v.21-25. Fractions are preserved; some transcriptions lose
+# the half in Rasi 3.5 / Dashavarga 1.5, producing totals below twenty.
+SHODASHAVARGA_CODES = ["D1", "D2", "D3", "D4", "D7", "D9", "D10", "D12", "D16", "D20", "D24", "D27", "D30", "D40", "D45", "D60"]
+SHODASHAVARGA_WEIGHTS: dict[str, float] = {
+    "D1": 3.5, "D2": 1.0, "D3": 1.0, "D4": 0.5, "D7": 0.5, "D9": 3.0,
+    "D10": 0.5, "D12": 0.5, "D16": 2.0, "D20": 0.5, "D24": 0.5,
+    "D27": 0.5, "D30": 1.0, "D40": 0.5, "D45": 0.5, "D60": 4.0,
 }
 
 # Varga Viswa - HIGH confidence, verified against BPHS's own worked
@@ -89,11 +102,17 @@ def compute_vimshopaka_bala(planets: list[PlanetPosition]) -> dict[Planet, Vimsh
         saptavarga = _varga_score(
             planet, pos.sign, pos.varga_signs, d1_signs, SAPTAVARGA_CODES, SAPTAVARGA_WEIGHTS
         )
+        dashavarga = _varga_score(planet, pos.sign, pos.varga_signs, d1_signs, DASHAVARGA_CODES, DASHAVARGA_WEIGHTS)
+        shodashavarga = _varga_score(planet, pos.sign, pos.varga_signs, d1_signs, SHODASHAVARGA_CODES, SHODASHAVARGA_WEIGHTS)
         results[planet] = VimshopakaBalaResult(
             planet=planet,
             shadvarga_score=shadvarga,
             saptavarga_score=saptavarga,
             shadvarga_band=strength_band(shadvarga),
             saptavarga_band=strength_band(saptavarga),
+            dashavarga_score=dashavarga,
+            shodashavarga_score=shodashavarga,
+            dashavarga_band=strength_band(dashavarga),
+            shodashavarga_band=strength_band(shodashavarga),
         )
     return results

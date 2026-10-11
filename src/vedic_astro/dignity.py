@@ -5,9 +5,7 @@ independent sources, matches classical BPHS consensus - see the plan
 that introduced this module. Rahu/Ketu are deliberately excluded (always
 NEUTRAL): their exaltation/debilitation is genuinely disputed across at
 least 3 incompatible classical traditions (Taurus/Scorpio vs. both-in-
-Scorpio vs. Gemini/Sagittarius), so nothing is guessed here - same "flag
-rather than fabricate" posture as the held-back divisional charts and the
-Varahamihira Ashtakavarga method.
+Scorpio vs. Gemini/Sagittarius), so their sign-level dignity stays neutral.
 
 Not implemented (deliberately out of scope, more complex/disputed):
 a continuous exaltation-strength score, and Neecha Bhanga (debilitation

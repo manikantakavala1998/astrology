@@ -1,0 +1,14 @@
+{% if laghu_report %}
+<div class="panel">
+  <h2 class="section-title">📖 Laghu Parashari · {{ laghu_report.ascendant }} ascendant</h2>
+  <p class="hint">House ownership, yoga connections and period rules from your birth inputs.</p>
+  <table><thead><tr><th>Planet</th><th>Owns</th><th>Functional role</th><th>Maraka lordship</th><th>Calculation</th></tr></thead><tbody>
+  {% for row in laghu_report.roles %}<tr><td class="planet-color-{{ row.planet | lower }}">{{ row.planet }}</td><td>{{ row.houses | join(', ') }}</td><td>{{ row.role }}</td><td>{{ row.maraka_houses | join(', ') or '—' }}</td><td>{{ row.calculation }}</td></tr>{% endfor %}
+  </tbody></table>
+  <h3>Rahu and Ketu</h3>{% for row in laghu_report.nodes %}<p>{{ row.planet }} · {{ row.calculation }}</p>{% endfor %}
+  <details><summary>All 12 ascendants</summary>{% for entry in laghu_report.all_ascendants %}<h3>{{ entry.ascendant }}</h3><table><thead><tr><th>Planet</th><th>Owns</th><th>Role</th><th>Calculation</th></tr></thead><tbody>{% for row in entry.roles %}<tr><td>{{ row.planet }}</td><td>{{ row.houses | join(', ') }}</td><td>{{ row.role }}</td><td>{{ row.calculation }}</td></tr>{% endfor %}</tbody></table>{% endfor %}</details>
+  <details><summary>Vimshottari dasha and antardasha</summary>{% for major in laghu_report.periods %}<details><summary>{{ major.planet }} · {{ major.start }} → {{ major.end }}</summary><table><thead><tr><th>Antardasha</th><th>Start</th><th>End</th><th>Reading</th></tr></thead><tbody>{% for minor in major.sub_periods %}<tr><td>{{ minor.planet }}</td><td>{{ minor.start }}</td><td>{{ minor.end }}</td><td>{{ minor.reading.result }} {{ minor.reading.notes | join(' ') }}</td></tr>{% endfor %}</tbody></table></details>{% endfor %}</details>
+  <h3>All 42 topics · rules and calculations</h3>
+  {% for rule in laghu_report.rules %}<details><summary>{{ rule.number }}. {{ rule.name }} · {{ rule.status }}</summary><p><strong>Rule:</strong> {{ rule.condition }}</p>{% if rule.calculation %}<p><strong>Calculation:</strong> {{ rule.calculation }}</p>{% endif %}<p><strong>Result:</strong> {{ rule.result }}</p></details>{% endfor %}
+</div>
+{% endif %}

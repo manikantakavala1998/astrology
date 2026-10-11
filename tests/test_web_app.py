@@ -1,10 +1,29 @@
 import re
+from datetime import date
+
+import pytest
 
 from fastapi.testclient import TestClient
 
-from vedic_astro.web.app import _to_24_hour_time, app
+from vedic_astro.web.app import _birth_date_input, _parse_birth_date, _to_24_hour_time, app
 
 client = TestClient(app)
+
+
+@pytest.mark.parametrize('value,expected', [
+    ('04/09/1998', date(1998, 9, 4)), ('09/04/1998', date(1998, 4, 9)),
+    ('29/02/2000', date(2000, 2, 29)), ('1998-09-04', date(1998, 9, 4)),
+])
+def test_birth_date_is_day_first_with_iso_compatibility(value, expected):
+    assert _parse_birth_date(value) == expected
+    assert _birth_date_input(value) == f'{expected.day:02d}/{expected.month:02d}/{expected.year:04d}'
+
+
+@pytest.mark.parametrize('value', ['31/04/1998', '29/02/1900', '29/02/2023', '04/13/1998', '00/09/1998', '04/09/0000', '1998/09/04', 'invalid'])
+def test_invalid_birth_date_is_rejected_and_preserved(value):
+    with pytest.raises(ValueError, match='DD/MM/YYYY'):
+        _parse_birth_date(value)
+    assert _birth_date_input(value) == value
 
 
 def test_to_24_hour_time_conversions() -> None:
@@ -15,6 +34,19 @@ def test_to_24_hour_time_conversions() -> None:
     assert _to_24_hour_time(1, 30, "AM") == time(1, 30)
     assert _to_24_hour_time(1, 30, "PM") == time(13, 30)
     assert _to_24_hour_time(11, 59, "PM") == time(23, 59)
+
+
+def test_rjy_midnight_birth_keeps_city_and_removes_nadi_interface() -> None:
+    response = client.post("/", data={
+        "birth_date": "1998-09-04", "birth_hour": "12", "birth_minute": "3",
+        "birth_meridiem": "AM", "place_name": "rjy, Andhra Pradesh",
+        "ayanamsha": "lahiri", "node_type": "mean",
+    })
+    assert response.status_code == 200
+    assert "Rajamahendravaram, Andhra Pradesh, India" in response.text
+    assert 'id="panel-bnn"' not in response.text
+    assert 'id="tab-bnn"' not in response.text
+    assert "Bhrigu Nandi Nadi" not in response.text
 
 
 def test_post_missing_hour_shows_friendly_error_not_422() -> None:
@@ -100,33 +132,10 @@ def test_post_with_place_name_renders_bcp_tab() -> None:
     assert "BCP Longevity Indication" in response.text
     assert "Sampath Kumar Medavarapu" in response.text
     assert ("Rule 1 applies" in response.text) or ("Rule 2 applies" in response.text)
-    assert 'id="subtab-bcp-core"' in response.text
-    assert 'id="subtab-bsp"' in response.text
-    assert 'id="subtab-padma-chakra"' in response.text
-
-
-def test_post_with_place_name_renders_bnn_tab() -> None:
-    response = client.post(
-        "/",
-        data={
-            "birth_date": "1990-06-15",
-            "birth_hour": "8",
-            "birth_minute": "30",
-            "birth_meridiem": "AM",
-            "place_name": "Chennai, India",
-            "ayanamsha": "lahiri",
-            "node_type": "mean",
-        },
-    )
-    assert response.status_code == 200
-    assert 'id="panel-bnn"' in response.text
-    assert "Bhrigu Nandi Nadi" in response.text
-    assert "Jupiter as Lagna" in response.text
-    assert "Karaka Readings" in response.text
-    assert "Sibling Count" in response.text
-    assert "Marriage Timing" in response.text
-    assert "Short-Life / Poverty Indication" in response.text
-    assert "Career Sequence (Saturn)" in response.text
+    assert 'id="panel-bsp"' in response.text
+    assert 'id="panel-padma"' in response.text
+    assert 'id="tab-bsp"' in response.text
+    assert 'id="tab-padma"' in response.text
 
 
 def test_post_with_place_name_renders_bsp_subtab() -> None:
@@ -240,12 +249,14 @@ def test_post_renders_balas_tab_with_all_three_subtabs() -> None:
     )
     assert response.status_code == 200
     assert 'id="panel-balas"' in response.text
-    assert "Sadbala" in response.text
+    assert "Shadbala" in response.text
     assert "Vimshopaka Bala" in response.text
     assert "Bhava Bala" in response.text
     assert "Strong Enough" in response.text or "Below Required" in response.text
-    assert "Dashavarga and Shodashavarga not shown on purpose" in response.text
-    assert 'id="panel-jaimini"' not in response.text
+    assert "Dashavarga · 10 charts" in response.text
+    assert "Shodashavarga · 16 charts" in response.text
+    assert "strength scores are not yet implemented" not in response.text
+    assert 'id="panel-jaimini"' in response.text
     assert "Janma Navaka" not in response.text
 
 

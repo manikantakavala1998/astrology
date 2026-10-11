@@ -1,0 +1,34 @@
+{% macro jaimini_table(rows, fields, headings) %}
+<div class="table-wrapper"><table><thead><tr>{% for heading in headings %}<th scope="col">{{ heading }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in rows %}<tr>{% for field in fields %}<td>{% set value = row[field] %}{% if value is iterable and value is not string and value is not mapping %}{{ value | join(', ') }}{% else %}{{ value if value is not none else 'No eligible candidate' }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div>
+{% endmacro %}
+<div class="tab-panel" id="panel-jaimini">
+{% if jaimini_report %}
+{% set report = jaimini_report %}
+<div class="panel"><h2 class="section-title">🪐 Jaimini North</h2><p>Calculated from your birth details using whole signs. Choose seven or eight karakas below.</p></div>
+{% for count, scheme in report.schemes.items() %}
+<details class="panel" {% if count == '7' %}open{% endif %}><summary>{{ count }} Chara Karakas · Charts &amp; Predictions</summary>
+{{ jaimini_table(scheme.karakas, ['name', 'planet', 'degree', 'effective_degree', 'sign', 'navamsa_sign', 'meaning'], ['Karaka', 'Planet', 'Natal degree', 'Ranking degree', 'D1 sign', 'D9 sign', 'Topic']) }}
+<p>Karakamsha / Swamsha sign: <strong>{{ scheme.karakamsha }}</strong>. {{ report.rules.karakamsha }}</p><p>{{ report.rules.karakas }}</p>
+<h3>Chart indications</h3>{% for reading in scheme.readings %}<h4>{{ reading.topic }}</h4><p>{{ reading.summary }}</p><p>{{ reading.evidence }}</p><details><summary>Rule</summary><p>{{ reading.rule }}</p></details>{% endfor %}
+<h3>Yogas</h3>{{ jaimini_table(scheme.yogas, ['name', 'present', 'evidence', 'rule'], ['Condition', 'Detected', 'Your chart', 'Rule']) }}
+<h3>Advanced significators</h3><p>Brahma: {{ scheme.advanced.brahma or 'No eligible candidate' }} · Rudra: {{ scheme.advanced.rudra }} · Maheshwara: {{ scheme.advanced.maheswara }}</p>
+<p>{{ scheme.advanced.brahma_rule }}</p><p>{{ scheme.advanced.rudra_rule }}</p><p>{{ scheme.advanced.maheswara_rule }}</p>
+{{ jaimini_table(scheme.advanced.brahma_candidates, ['planet', 'sign', 'eligible'], ['Brahma candidate', 'Occupied sign', 'Eligible']) }}
+{{ jaimini_table(scheme.advanced.sthira_karakas, ['meaning', 'planet'], ['Sthira Karaka topic', 'Planet']) }}
+{{ jaimini_table(scheme.advanced.longevity_pairs, ['pair', 'first', 'second', 'first_type', 'second_type', 'category'], ['Pair', 'First sign', 'Second sign', 'First type', 'Second type', 'Category']) }}
+<p>Traditional category: {{ scheme.advanced.traditional_category }}. A classical classification, not a lifespan estimate. {{ scheme.advanced.category_rule }}</p>
+</details>
+{% endfor %}
+<details class="panel"><summary>🔭 Rashi Aspects</summary><p>{{ report.rules.aspects }}</p>
+<div class="table-wrapper"><table><thead><tr><th>Planet</th><th>Occupied sign</th><th>Aspected planets</th><th>Aspected signs</th></tr></thead><tbody>{% for row in report.aspects %}<tr><th>{{ row.planet }}</th><td>{{ row.sign }}</td><td>{% for p in row.aspected_planets %}{{ p.planet }} ({{ p.sign }}){% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</td><td>{{ row.aspected_signs | join(', ') }}</td></tr>{% endfor %}</tbody></table></div>
+</details>
+<details class="panel"><summary>✨ All 12 Arudha Padas</summary>{{ jaimini_table(report.padas, ['code', 'name', 'sign', 'lord', 'lord_sign', 'calculation'], ['Pada', 'Full name', 'Result sign', 'Lord', 'Lord’s sign', 'Calculation']) }}</details>
+<details class="panel"><summary>💜 Upapada</summary><p>{{ report.upapada.rule }}</p><p>Upapada {{ report.upapada.sign }} · Lord {{ report.upapada.lord }} · Second sign {{ report.upapada.second_sign }} · Second-sign lord {{ report.upapada.second_lord }}</p><p>Occupants: {{ report.upapada.occupants | join(', ') or 'None' }} · Second-sign occupants: {{ report.upapada.second_occupants | join(', ') or 'None' }} · Aspecting planets: {{ report.upapada.aspecting | join(', ') or 'None' }}</p></details>
+<details class="panel"><summary>🔗 Argala &amp; Virodhargala</summary><p>{{ report.rules.argala }}</p>{{ jaimini_table(report.argala, ['target', 'argala_sign', 'argala_planets', 'blocking_sign', 'blocking_planets', 'status', 'calculation'], ['Target sign', 'Intervention sign', 'Planets', 'Blocking sign', 'Planets', 'Result', 'Calculation']) }}</details>
+<details class="panel"><summary>⏳ Jaimini North Dashas</summary>{% for system in report.dasha_systems %}<details><summary>{{ system.name }}</summary><p>{{ system.method }} One year = {{ system.year_days }} days.</p>{% if system.unavailable %}<p>{{ system.unavailable }}</p>{% endif %}{{ jaimini_table(system.periods, ['sign', 'start', 'end', 'years', 'cycle', 'rule'], ['Sign', 'Start (birth-place time)', 'End', 'Years', 'Cycle', 'Calculation']) }}</details>{% endfor %}</details>
+<details class="panel"><summary>⚖️ Relative sign strengths</summary><p>{{ report.rules.strength }}</p>{{ jaimini_table(report.strengths, ['sign', 'lord', 'occupants', 'metrics'], ['Sign (strongest first)', 'Lord', 'Occupants', 'Comparison criteria']) }}</details>
+<details class="panel"><summary>⚙️ Special Lagnas</summary>{{ jaimini_table(report.lagnas, ['name', 'sign', 'degree', 'calculation'], ['Lagna', 'Sign', 'Degree', 'Calculation']) }}</details>
+{% endif %}
+</div>

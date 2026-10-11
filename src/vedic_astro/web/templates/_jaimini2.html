@@ -1,0 +1,37 @@
+{% from '_jaimini.html' import jaimini_table %}
+<div class="tab-panel" id="panel-jaimini2">
+{% if jaimini2_report %}
+{% set report = jaimini2_report %}{% set scheme = report.schemes['7'] %}
+<div class="panel"><h2>📖 Jaimini South · {{ report.author }}</h2><p>Seven-karaka book conventions, calculated from the supplied birth details.</p>
+{% for warning in report.warnings %}<p>{{ warning }}</p>{% endfor %}
+{{ jaimini_table(scheme.karakas, ['name', 'planet', 'degree', 'sign', 'navamsa_sign', 'meaning'], ['Karaka', 'Planet', 'Degree', 'D1 sign', 'D9 sign', 'Topic']) }}
+<p>Karakamsha: {{ scheme.karakamsha }}. {{ report.rules.karakamsha }}</p><p>{{ report.rules.karakas }}</p></div>
+<details class="panel" open><summary>📜 Predictions · Your chart explained</summary>{% for r in scheme.readings %}<h3>{{ r.topic }}</h3><p>{{ r.summary }}</p><p>{{ r.evidence }}</p><details><summary>Why this appears</summary><p>{{ r.rule }}</p></details>{% endfor %}</details>
+<details class="panel"><summary>🔮 Detailed prediction modules</summary><p>{{ report.predictions.assessment_rule }}</p>
+{% for module in report.predictions.modules %}<details><summary>{{ module.title }} · {{ module.basis }} · {{ module.anchor }}</summary><p>{{ module.tone | title }}: {{ module.summary }}</p>
+{{ jaimini_table(module.facts, ['label', 'value'], ['Factor', 'Your calculation']) }}
+{% for condition in module.conditions if condition.present %}<h4>{{ condition.topic }} · {{ condition.tone }}</h4><p>{{ condition.summary }}</p><p>{{ condition.evidence }}</p><p>{{ condition.rule }}</p>{% endfor %}
+{% if module.houses %}{{ jaimini_table(module.houses, ['house', 'sign', 'occupants'], ['House', 'Sign', 'Planets']) }}{% endif %}
+{% if module.padas %}{{ jaimini_table(module.padas, ['code', 'name', 'sign', 'occupants', 'aspecting', 'calculation'], ['Pada', 'Topic', 'Sign', 'Occupants', 'Aspects', 'Calculation']) }}{% endif %}
+</details>{% endfor %}
+<h3>Separate Upapada conventions</h3>{% for module in report.predictions.upapada_readings %}<details><summary>{{ module.title }} · {{ module.anchor }}</summary><p>{{ module.calculation }}</p><p>{{ module.tone }}: {{ module.summary }}</p>{% for condition in module.conditions if condition.present %}<p>{{ condition.summary }} {{ condition.evidence }}</p>{% endfor %}</details>{% endfor %}
+<h3>Dasha predictions</h3>{% for system in report.dasha_systems if system.periods %}<details><summary>{{ system.name }}</summary><div class="table-scroll"><table><thead><tr><th>Sign</th><th>Start</th><th>End</th><th>Indication</th><th>Why</th></tr></thead><tbody>{% for period in system.periods %}{% set reading = system.predictions[period.sign] %}<tr><td>{{ period.sign }}</td><td>{{ period.start }}</td><td>{{ period.end }}</td><td>{{ reading.tone }}</td><td>{% for condition in reading.conditions if condition.present %}{{ condition.topic }}; {% else %}{{ reading.scope }}{% endfor %}</td></tr>{% endfor %}</tbody></table></div></details>{% endfor %}
+</details>
+<details class="panel"><summary>🔭 Rashi Aspects</summary><p>{{ report.rules.aspects }}</p>{{ jaimini_table(report.aspects, ['planet', 'sign', 'aspected_signs'], ['Planet', 'Occupied sign', 'Aspected signs']) }}</details>
+<details class="panel"><summary>✨ Arudha Padas</summary>{{ jaimini_table(report.padas, ['code', 'name', 'sign', 'lord', 'calculation'], ['Pada', 'Name', 'Sign', 'Lord', 'Calculation']) }}</details>
+<details class="panel"><summary>💜 Upapada</summary><p>{{ report.upapada.rule }}</p><p>Standard UL {{ report.upapada.sign }}; lord {{ report.upapada.lord }}; second {{ report.upapada.second_sign }}.</p>{{ jaimini_table(report.upapada_variants, ['name', 'pithru', 'source', 'lord', 'sign', 'calculation'], ['Variant', 'Pithru', 'Source', 'Lord', 'Upapada', 'Calculation']) }}</details>
+<details class="panel"><summary>🔗 Argala</summary><p>{{ report.rules.argala }}</p>{{ jaimini_table(report.argala, ['target', 'argala_sign', 'argala_planets', 'blocking_sign', 'blocking_planets', 'status', 'calculation'], ['Target', 'Intervention', 'Planets', 'Obstruction', 'Planets', 'Result', 'Calculation']) }}</details>
+<details class="panel"><summary>🌟 Yogada &amp; Kevala</summary>
+{% for kind, name in [('yogada', 'Yogada'), ('kevala', 'Kevala')] %}
+{% set related = scheme.yogas | selectattr('kind', 'equalto', kind) | selectattr('present') | list %}
+<h3>{{ name }} planets</h3>
+{% for planet in related | map(attribute='planets') | sum(start=[]) | unique %}<p><strong>{{ planet }}</strong>{% for row in related if planet in row.planets %}<br>{{ row.evidence }}{% endfor %}</p>{% else %}<p>No planet meets the {{ name }} conditions in this chart.</p>{% endfor %}
+{% endfor %}</details>
+<details class="panel"><summary>📊 Sign Strength</summary><p>Relative rank: 1 is strongest. Taller bars show a higher rank; equal calculation results share a rank.</p>
+<div class="native-jaimini2-strength" role="region" aria-label="Jaimini South sign strength graph" tabindex="0"><div>
+{% for row in report.strengths %}<figure><figcaption>#{{ row.rank }}</figcaption><span class="native-jaimini2-strength-track"><span style="height: {{ (13 - row.rank) / 12 * 100 }}%"></span></span><small>{{ row.sign }}</small></figure>{% endfor %}
+</div></div><p>{{ report.rules.strength }}</p>{{ jaimini_table(report.strengths, ['rank', 'sign', 'lord', 'occupants', 'metrics'], ['Rank', 'Sign', 'Lord', 'Occupants', 'Count / degree / type']) }}</details>
+<details class="panel"><summary>⏳ All 38 dasha methods</summary><p>360-day calculation year. Major periods only; no subdivisions borrowed from another method.</p>{% for s in report.dasha_systems %}<details><summary>{{ s.book_number }}. {{ s.name }}</summary><p>{{ s.method }}</p>{% if s.unavailable %}<p>{{ s.unavailable }}</p>{% endif %}{{ jaimini_table(s.worksheet, ['factor', 'value'], ['Factor', 'Calculated worksheet']) }}{{ jaimini_table(s.periods, ['sign', 'start', 'end', 'years', 'rule'], ['Sign', 'Start', 'End', 'Years', 'Calculation']) }}</details>{% endfor %}</details>
+<details class="panel"><summary>⚙️ Advanced calculations</summary>{{ jaimini_table(report.lagnas, ['name', 'sign', 'degree', 'calculation'], ['Lagna', 'Sign', 'Progress', 'Calculation']) }}<p>{{ scheme.advanced.brahma_rule }} Brahma: {{ scheme.advanced.brahma }}.</p><p>{{ scheme.advanced.rudra_rule }} Rudra: {{ scheme.advanced.rudra }}.</p><p>{{ scheme.advanced.maheswara_rule }} Maheshwara: {{ scheme.advanced.maheswara }}.</p>{{ jaimini_table(scheme.advanced.longevity_pairs, ['pair', 'first', 'second', 'category'], ['Pair', 'First', 'Second', 'Category']) }}<p>{{ scheme.advanced.category_rule }} Traditional category: {{ scheme.advanced.traditional_category }}.</p></details>
+{% else %}<div class="panel"><p>Enter birth details to calculate Jaimini South.</p></div>{% endif %}
+</div>

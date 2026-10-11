@@ -22,6 +22,8 @@ def test_build_kundali_chart_has_all_nine_planets() -> None:
         Planet.SUN, Planet.MOON, Planet.MARS, Planet.MERCURY, Planet.JUPITER,
         Planet.VENUS, Planet.SATURN, Planet.RAHU, Planet.KETU,
     }
+    assert chart.bnn is not None
+    assert len(chart.bnn.karaka_readings) == 9
 
 
 def test_every_planet_has_a_house_between_one_and_twelve() -> None:
@@ -101,7 +103,10 @@ def test_chart_includes_chara_karakas_and_chara_dasha() -> None:
 
 
 def test_every_planet_and_the_ascendant_have_the_confidently_built_varga_signs() -> None:
-    built_codes = {"D1", "D2", "D3", "D7", "D9", "D10", "D12", "D30"}
+    built_codes = {
+        "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12",
+        "D16", "D20", "D24", "D27", "D30", "D40", "D45", "D60", "D81", "D108", "D144",
+    }
     chart = build_kundali_chart(_sample_birth_data())
     assert set(chart.ascendant.varga_signs.keys()) == built_codes
     for planet_position in chart.planets:

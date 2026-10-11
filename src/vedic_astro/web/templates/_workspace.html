@@ -1,0 +1,1448 @@
+  <div class="page">
+
+    {% macro bala_graph(rows, field, maximum, title, unit, houses=False, required=False) %}
+    <figure class="bala-graph" data-measure="{{ field }}" data-maximum="{{ maximum }}">
+      <figcaption><h3>{{ title }}</h3><p>{{ unit }}{% if required %} · short marks show the required strength{% endif %}{% if houses %} · colors follow each house lord{% endif %}</p></figcaption>
+      <div class="bala-plot-scroll" tabindex="0" role="region" aria-label="{{ title }} vertical graph">
+        <div class="bala-plot {% if houses %}bala-house-plot{% endif %}" style="--bala-columns: {{ rows | length }}">
+          <div class="bala-scale" aria-hidden="true">{% for tick in range(4, -1, -1) %}<span>{{ '%g' | format(maximum * tick / 4) }}</span>{% endfor %}</div>
+          <div class="bala-grid" aria-hidden="true"></div>
+          <div class="bala-columns">
+            {% for row in rows %}
+            {% set planet = row.lord if houses else row.planet %}
+            {% set value = row[field] %}
+            <div class="bala-column" data-planet="{{ planet }}" {% if houses %}data-house="{{ row.house }}"{% endif %} data-value="{{ value }}" title="{% if houses %}House {{ row.house }} · {{ planet }}{% else %}{{ planet }}{% endif %}: {{ value }} {{ unit }}{% if required %}; required {{ row.required_rupas }}{% endif %}">
+              <strong class="bala-value planet-color-{{ planet | lower }}">{{ value }}</strong>
+              <div class="bala-track">
+                <span class="bala-bar planet-color-{{ planet | lower }}" style="height: {{ [value, 0] | max / maximum * 100 }}%"></span>
+                {% if required %}<span class="bala-required" style="bottom: {{ row.required_rupas / maximum * 100 }}%" title="Required: {{ row.required_rupas }} Rupas"></span>{% endif %}
+              </div>
+              <span class="bala-label">{% if houses %}<span>H{{ row.house }}</span><small class="planet-color-{{ planet | lower }}">{{ planet }}</small>{% else %}<span class="bala-planet-full">{{ planet }}</span><abbr class="bala-planet-short" title="{{ planet }}">{{ planet[:2] }}</abbr>{% endif %}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </figure>
+    {% endmacro %}
+
+    {% macro render_chart_cell(cell) %}
+    <div class="chart-cell {% if cell.is_ascendant %}ascendant{% endif %}">
+      <span class="cell-sign chart-sign-header has-direction" title="{{ cell.sign.value }}, house {{ cell.house }}">
+        <span class="chart-sign-name"><span class="chart-sign-full">{{ cell.sign.value }}</span><span class="chart-sign-short" aria-hidden="true">{{ cell.sign.value[:3] }}</span></span><span class="cell-element chart-element-label">{{ cell.element_symbol }}</span><span class="chart-direction-label" title="Direction: {{ cell.direction }}">{{ cell.direction }}</span><span class="chart-house-label">H{{ cell.house }}</span>
+      </span>
+      <span class="cell-planets">
+        {% if cell.is_ascendant %}<span class="chart-planet-row cell-asc">ASC</span>{% endif %}
+        {% for label in cell.planet_labels %}
+        <span class="chart-planet-row {{ label.color_class }}">
+          <span>{{ label.code }}{% if label.retrograde %}(R){% endif %}{% if label.dignity_suffix %}<span class="dignity-suffix dignity-suffix-{{ 'exalted' if label.dignity_suffix == 'E' else 'debilitated' }}">({{ label.dignity_suffix }})</span>{% endif %}</span>
+          {% set degrees = label.natal_degree | int %}
+          {% set minutes = ((label.natal_degree - degrees) * 60) | int %}
+          <small class="planet-degree" title="Natal D1 degree">{{ degrees }}&deg;{{ "%02d" | format(minutes) }}&#8242;</small>
+        </span>
+        {% endfor %}
+      </span>
+    </div>
+    {% endmacro %}
+
+    {% macro render_chart_grid(cells, title, subtitle=None) %}
+    {% set layout = namespace(slots=1) %}
+    {% for row in cells %}{% for cell in row if cell %}
+      {% set slots = (cell.planet_labels | length) + (1 if cell.is_ascendant else 0) %}
+      {% if slots > layout.slots %}{% set layout.slots = slots %}{% endif %}
+    {% endfor %}{% endfor %}
+    <div class="chart-grid" style="--chart-slots: {{ layout.slots }}">
+      {% for row in cells %}{% for cell in row %}
+        {% if cell is none %}<div class="chart-cell blank"></div>
+        {% else %}{{ render_chart_cell(cell) }}{% endif %}
+      {% endfor %}{% endfor %}
+      <div class="chart-center" aria-hidden="true">
+        <strong class="chart-center-title">{{ title }}</strong>
+        {% if subtitle %}<span class="chart-center-purpose">{{ subtitle }}</span>{% endif %}
+        {% if chart.birth_data.name %}<span class="chart-center-name" title="{{ chart.birth_data.name }}">{{ chart.birth_data.name }}</span>{% endif %}
+        <dl class="chart-center-details">
+          <div><dt>Date</dt><dd>{{ chart.birth_data.birth_date.strftime('%d %b %Y') }}</dd></div>
+          <div><dt>Time</dt><dd>{{ chart.birth_data.birth_time.strftime('%I:%M %p') }}</dd></div>
+          <div><dt>Lat</dt><dd>{{ "%.2f" | format(chart.birth_data.latitude | abs) }}&deg; {{ 'S' if chart.birth_data.latitude < 0 else 'N' }}</dd></div>
+          <div><dt>Lon</dt><dd>{{ "%.2f" | format(chart.birth_data.longitude | abs) }}&deg; {{ 'W' if chart.birth_data.longitude < 0 else 'E' }}</dd></div>
+        </dl>
+      </div>
+    </div>
+    <p class="chart-legend">(R) Retrograde &middot; (E) Exalted &middot; (D) Debilitated<br>Degrees show natal D1 positions</p>
+    {% endmacro %}
+
+    {% if error %}
+    <div class="panel error">{{ error }}</div>
+    {% endif %}
+
+    {% macro birth_place_fields(prefix='') %}
+    <fieldset class="birth-location" data-birth-location>
+      <legend>Place of birth</legend>
+      <div class="birth-location-grid">
+        <div class="field">
+          <label for="{{ prefix }}birth_state">State / Union territory</label>
+          <select id="{{ prefix }}birth_state" name="{{ prefix }}birth_state" data-birth-state aria-describedby="{{ prefix }}birth_location_hint">
+            <option value="" {% if not form_values[prefix + 'birth_state'] %}selected{% endif %}>Select your state</option>
+            {% for value, label in birth_state_choices %}
+            <option value="{{ value }}" {% if form_values[prefix + 'birth_state'] == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+            <option value="other" {% if form_values[prefix + 'birth_state'] == 'other' %}selected{% endif %}>Other / outside India</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="{{ prefix }}place_name">City / Town</label>
+          <input type="text" id="{{ prefix }}place_name" name="{{ prefix }}place_name" data-birth-city
+                 placeholder="{{ 'Enter city, region and country' if form_values[prefix + 'birth_state'] == 'other' else 'Enter your city or town' }}"
+                 value="{{ form_values[prefix + 'place_name'] }}" aria-describedby="{{ prefix }}birth_location_hint">
+        </div>
+      </div>
+      <p class="birth-location-hint" id="{{ prefix }}birth_location_hint" data-birth-location-hint>{{ 'Enter the city, region and country.' if form_values[prefix + 'birth_state'] == 'other' else 'Select your state, then enter your city or town.' }}</p>
+    </fieldset>
+    {% endmacro %}
+
+    <div class="panel">
+      <h2 class="section-title">&#127769; Birth details</h2>
+      <form method="post" action="/">
+        <div class="form-grid">
+          <div class="field">
+            <label for="name">Name (optional)</label>
+            <input type="text" id="name" name="name" placeholder="e.g. Priya" value="{{ form_values.name }}">
+          </div>
+          <div class="field">
+            <label for="birth_date">Date of birth</label>
+            <div class="birth-date-control">
+              <input type="text" id="birth_date" name="birth_date" data-birth-date value="{{ form_values.birth_date | birth_date_input }}" placeholder="DD/MM/YYYY" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" maxlength="10" inputmode="numeric" title="Enter date as DD/MM/YYYY, for example 04/09/1998" required>
+              <button type="button" class="birth-date-picker" aria-label="Choose date of birth from calendar" hidden><span aria-hidden="true">📅</span></button>
+              <input type="date" class="birth-date-calendar" tabindex="-1" aria-hidden="true">
+            </div>
+          </div>
+          <div class="field time-field">
+            <label for="birth_hour">Time of birth</label>
+            <div class="time-inputs">
+              <select id="birth_hour" name="birth_hour" aria-label="Hour" required>
+                <option value="" {% if not form_values.birth_hour %}selected{% endif %}>HH</option>
+                {% for h in range(1, 13) %}
+                <option value="{{ h }}" {% if form_values.birth_hour==h|string %}selected{% endif %}>{{ h }}</option>
+                {% endfor %}
+              </select>
+              <span>:</span>
+              <select id="birth_minute" name="birth_minute" aria-label="Minute" required>
+                <option value="" {% if not form_values.birth_minute %}selected{% endif %}>MM</option>
+                {% for m in range(0, 60) %}
+                <option value="{{ m }}" {% if form_values.birth_minute==m|string %}selected{% endif %}>{{ "%02d"|format(m) }}</option>
+                {% endfor %}
+              </select>
+              <select id="birth_meridiem" name="birth_meridiem" aria-label="AM or PM" required>
+                <option value="AM" {% if form_values.birth_meridiem=='AM' %}selected{% endif %}>AM</option>
+                <option value="PM" {% if form_values.birth_meridiem=='PM' %}selected{% endif %}>PM</option>
+              </select>
+            </div>
+          </div>
+          {{ birth_place_fields() }}
+        </div>
+
+        <details class="advanced">
+          <summary>Advanced settings</summary>
+          <div class="form-grid">
+            <div class="field">
+              <label for="ayanamsha">Ayanamsha</label>
+              <select id="ayanamsha" name="ayanamsha">
+                {% for choice in ayanamsha_choices %}
+                <option value="{{ choice }}" {% if form_values.ayanamsha==choice %}selected{% endif %}>
+                  {{ choice | capitalize }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="node_type">Rahu/Ketu node</label>
+              <select id="node_type" name="node_type">
+                <option value="mean" {% if form_values.node_type=='mean' %}selected{% endif %}>Mean node</option>
+                <option value="true" {% if form_values.node_type=='true' %}selected{% endif %}>True node</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="house_system">House system</label>
+              <select id="house_system" name="house_system">
+                {% for choice in house_system_choices %}
+                <option value="{{ choice }}" {% if form_values.house_system==choice %}selected{% endif %}>
+                  {{ choice | replace("_", " ") | capitalize }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="manual_latitude">Latitude (overrides place above)</label>
+              <input type="number" id="manual_latitude" name="manual_latitude" step="any" min="-90" max="90"
+                     placeholder="e.g. 13.0827" value="{{ form_values.manual_latitude }}">
+            </div>
+            <div class="field">
+              <label for="manual_longitude">Longitude (overrides place above)</label>
+              <input type="number" id="manual_longitude" name="manual_longitude" step="any" min="-180" max="180"
+                     placeholder="e.g. 80.2707" value="{{ form_values.manual_longitude }}">
+            </div>
+            <div class="field">
+              <label for="manual_utc_offset_hours">UTC offset (hours, optional)</label>
+              <input type="number" id="manual_utc_offset_hours" name="manual_utc_offset_hours" step="0.25" min="-12" max="14"
+                     placeholder="auto-detected if left blank" value="{{ form_values.manual_utc_offset_hours }}">
+            </div>
+          </div>
+          <p class="hint">Leave these alone unless you know you need them - sensible defaults (Lahiri ayanamsha, mean node,
+             whole sign houses) are used automatically. Note: the South Indian chart grid is always whole-sign by design -
+             choosing Equal/Placidus/Porphyry only changes the "House" column in the Planets/Aspects tables, not the grid itself.</p>
+        </details>
+
+        <div class="compat-row">
+          <input type="checkbox" id="include_match" name="include_match" class="compat-checkbox"
+                 {% if form_values.include_match=='on' %}checked{% endif %}>
+          <label for="include_match">Check marriage compatibility with a second person</label>
+        </div>
+
+        <div class="person-b-section">
+          <h3>Second person's birth details</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label for="b_name">Name (optional)</label>
+              <input type="text" id="b_name" name="b_name" placeholder="e.g. Arjun" value="{{ form_values.b_name }}">
+            </div>
+            <div class="field">
+              <label for="b_birth_date">Date of birth</label>
+              <div class="birth-date-control">
+                <input type="text" id="b_birth_date" name="b_birth_date" data-birth-date value="{{ form_values.b_birth_date | birth_date_input }}" placeholder="DD/MM/YYYY" pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}" maxlength="10" inputmode="numeric" title="Enter date as DD/MM/YYYY, for example 04/09/1998">
+                <button type="button" class="birth-date-picker" aria-label="Choose second person's date of birth from calendar" hidden><span aria-hidden="true">📅</span></button>
+                <input type="date" class="birth-date-calendar" tabindex="-1" aria-hidden="true">
+              </div>
+            </div>
+            <div class="field time-field">
+              <label for="b_birth_hour">Time of birth</label>
+              <div class="time-inputs">
+                <select id="b_birth_hour" name="b_birth_hour" aria-label="Hour">
+                  <option value="" {% if not form_values.b_birth_hour %}selected{% endif %}>HH</option>
+                  {% for h in range(1, 13) %}
+                  <option value="{{ h }}" {% if form_values.b_birth_hour==h|string %}selected{% endif %}>{{ h }}</option>
+                  {% endfor %}
+                </select>
+                <span>:</span>
+                <select id="b_birth_minute" name="b_birth_minute" aria-label="Minute">
+                  <option value="" {% if not form_values.b_birth_minute %}selected{% endif %}>MM</option>
+                  {% for m in range(0, 60) %}
+                  <option value="{{ m }}" {% if form_values.b_birth_minute==m|string %}selected{% endif %}>{{ "%02d"|format(m) }}</option>
+                  {% endfor %}
+                </select>
+                <select id="b_birth_meridiem" name="b_birth_meridiem" aria-label="AM or PM">
+                  <option value="AM" {% if form_values.b_birth_meridiem=='AM' %}selected{% endif %}>AM</option>
+                  <option value="PM" {% if form_values.b_birth_meridiem=='PM' %}selected{% endif %}>PM</option>
+                </select>
+              </div>
+            </div>
+            {{ birth_place_fields('b_') }}
+          </div>
+          <details class="advanced">
+            <summary>Advanced: exact coordinates for second person</summary>
+            <div class="form-grid">
+              <div class="field">
+                <label for="b_manual_latitude">Latitude (overrides place above)</label>
+                <input type="number" id="b_manual_latitude" name="b_manual_latitude" step="any" min="-90" max="90"
+                       placeholder="e.g. 12.9716" value="{{ form_values.b_manual_latitude }}">
+              </div>
+              <div class="field">
+                <label for="b_manual_longitude">Longitude (overrides place above)</label>
+                <input type="number" id="b_manual_longitude" name="b_manual_longitude" step="any" min="-180" max="180"
+                       placeholder="e.g. 77.5946" value="{{ form_values.b_manual_longitude }}">
+              </div>
+              <div class="field">
+                <label for="b_manual_utc_offset_hours">UTC offset (hours, optional)</label>
+                <input type="number" id="b_manual_utc_offset_hours" name="b_manual_utc_offset_hours" step="0.25" min="-12" max="14"
+                       placeholder="auto-detected if left blank" value="{{ form_values.b_manual_utc_offset_hours }}">
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit">Generate chart</button>
+        </div>
+      </form>
+    </div>
+
+    {# Preserves the OTHER person's full current state (including any place
+       they'd already resolved via a prior disambiguation pick) when a
+       candidate button for THIS person is clicked - otherwise picking a
+       candidate for one person could silently discard the other's already-
+       resolved selection and force them through disambiguation again. #}
+    {% macro other_person_fields(prefix, selected_latitude, selected_longitude, selected_timezone, selected_label) %}
+      <input type="hidden" name="{{ prefix }}name" value="{{ form_values[prefix + 'name'] }}">
+      <input type="hidden" name="{{ prefix }}birth_date" value="{{ form_values[prefix + 'birth_date'] }}">
+      <input type="hidden" name="{{ prefix }}birth_hour" value="{{ form_values[prefix + 'birth_hour'] }}">
+      <input type="hidden" name="{{ prefix }}birth_minute" value="{{ form_values[prefix + 'birth_minute'] }}">
+      <input type="hidden" name="{{ prefix }}birth_meridiem" value="{{ form_values[prefix + 'birth_meridiem'] }}">
+      <input type="hidden" name="{{ prefix }}place_name" value="{{ form_values[prefix + 'place_name'] }}">
+      <input type="hidden" name="{{ prefix }}birth_state" value="{{ form_values[prefix + 'birth_state'] }}">
+      <input type="hidden" name="{{ prefix }}manual_latitude" value="{{ form_values[prefix + 'manual_latitude'] }}">
+      <input type="hidden" name="{{ prefix }}manual_longitude" value="{{ form_values[prefix + 'manual_longitude'] }}">
+      <input type="hidden" name="{{ prefix }}manual_utc_offset_hours" value="{{ form_values[prefix + 'manual_utc_offset_hours'] }}">
+      <input type="hidden" name="{{ prefix }}selected_latitude" value="{{ selected_latitude }}">
+      <input type="hidden" name="{{ prefix }}selected_longitude" value="{{ selected_longitude }}">
+      <input type="hidden" name="{{ prefix }}selected_timezone" value="{{ selected_timezone }}">
+      <input type="hidden" name="{{ prefix }}selected_label" value="{{ selected_label }}">
+    {% endmacro %}
+
+    {% if candidates %}
+    <div class="panel">
+      <h2 class="section-title">&#128205; Which place did you mean?</h2>
+      <p class="hint">Multiple places matched "{{ form_values.place_name }}" for the first person - pick the right one.</p>
+      <div class="candidate-list">
+        {% for c in candidates %}
+        <form method="post" action="/" class="candidate-form">
+          <input type="hidden" name="name" value="{{ form_values.name }}">
+          <input type="hidden" name="birth_date" value="{{ form_values.birth_date }}">
+          <input type="hidden" name="birth_hour" value="{{ form_values.birth_hour }}">
+          <input type="hidden" name="birth_minute" value="{{ form_values.birth_minute }}">
+          <input type="hidden" name="birth_meridiem" value="{{ form_values.birth_meridiem }}">
+          <input type="hidden" name="place_name" value="{{ form_values.place_name }}">
+          <input type="hidden" name="birth_state" value="{{ form_values.birth_state }}">
+          <input type="hidden" name="ayanamsha" value="{{ form_values.ayanamsha }}">
+          <input type="hidden" name="node_type" value="{{ form_values.node_type }}">
+          <input type="hidden" name="house_system" value="{{ form_values.house_system }}">
+          <input type="hidden" name="include_match" value="{{ form_values.include_match }}">
+          <input type="hidden" name="selected_latitude" value="{{ c.latitude }}">
+          <input type="hidden" name="selected_longitude" value="{{ c.longitude }}">
+          <input type="hidden" name="selected_timezone" value="{{ c.timezone }}">
+          <input type="hidden" name="selected_label" value="{{ c.name }}, {{ c.state }}, {{ c.country }}">
+          {{ other_person_fields("b_", form_values.b_selected_latitude, form_values.b_selected_longitude, form_values.b_selected_timezone, form_values.b_selected_label) }}
+          <button type="submit" class="candidate-button">
+            {{ c.name }}, {{ c.state }}, {{ c.country }} <span class="hint">({{ c.timezone }})</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if candidates_b %}
+    <div class="panel">
+      <h2 class="section-title">&#128205; Which place did you mean for the second person?</h2>
+      <p class="hint">Multiple places matched "{{ form_values.b_place_name }}" - pick the right one.</p>
+      <div class="candidate-list">
+        {% for c in candidates_b %}
+        <form method="post" action="/" class="candidate-form">
+          <input type="hidden" name="b_name" value="{{ form_values.b_name }}">
+          <input type="hidden" name="b_birth_date" value="{{ form_values.b_birth_date }}">
+          <input type="hidden" name="b_birth_hour" value="{{ form_values.b_birth_hour }}">
+          <input type="hidden" name="b_birth_minute" value="{{ form_values.b_birth_minute }}">
+          <input type="hidden" name="b_birth_meridiem" value="{{ form_values.b_birth_meridiem }}">
+          <input type="hidden" name="b_place_name" value="{{ form_values.b_place_name }}">
+          <input type="hidden" name="b_birth_state" value="{{ form_values.b_birth_state }}">
+          <input type="hidden" name="ayanamsha" value="{{ form_values.ayanamsha }}">
+          <input type="hidden" name="node_type" value="{{ form_values.node_type }}">
+          <input type="hidden" name="house_system" value="{{ form_values.house_system }}">
+          <input type="hidden" name="include_match" value="{{ form_values.include_match }}">
+          <input type="hidden" name="b_selected_latitude" value="{{ c.latitude }}">
+          <input type="hidden" name="b_selected_longitude" value="{{ c.longitude }}">
+          <input type="hidden" name="b_selected_timezone" value="{{ c.timezone }}">
+          <input type="hidden" name="b_selected_label" value="{{ c.name }}, {{ c.state }}, {{ c.country }}">
+          {{ other_person_fields("", form_values.selected_latitude, form_values.selected_longitude, form_values.selected_timezone, form_values.selected_label) }}
+          <button type="submit" class="candidate-button">
+            {{ c.name }}, {{ c.state }}, {{ c.country }} <span class="hint">({{ c.timezone }})</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if chart %}
+    <div class="tabs-wrapper">
+      <input type="radio" name="main-tabs" id="tab-chart" class="tab-radio" checked>
+      <input type="radio" name="main-tabs" id="tab-dasha" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-aspects" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-classic-predictions" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-yogas" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-divisional" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-ashtakavarga" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-shani" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-dosha" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-balas" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-bcp" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-bsp" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-padma" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-brihat-jataka" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-jaimini" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-jaimini2" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-panchanga" class="tab-radio">
+      <input type="radio" name="main-tabs" id="tab-laghu-parashari" class="tab-radio">
+      {% if match_report %}<input type="radio" name="main-tabs" id="tab-compat" class="tab-radio">{% endif %}
+      <input type="radio" name="main-tabs" id="tab-tools" class="tab-radio">
+
+      <div class="tab-bar">
+        <div class="tab-bar-group">
+          <span class="tab-group-heading">Parasara Method</span>
+          <label for="tab-chart">Birth chart</label>
+          <label for="tab-panchanga">Panchanga</label>
+          <label for="tab-aspects">Aspects</label>
+          <label for="tab-balas">Strengths</label>
+          <label for="tab-dasha">Dasha</label>
+          <label for="tab-divisional">Divisional Charts</label>
+          <label for="tab-ashtakavarga">Ashtakavarga</label>
+          <label for="tab-laghu-parashari">Laghu Parashari</label>
+        </div>
+        <div class="tab-bar-group">
+          <span class="tab-group-heading">Bhrigu Method</span>
+          <label for="tab-bcp">Bhrigu Chakra Paddhati</label>
+          <label for="tab-bsp">Bhrigu Sarala Paddhati</label>
+          <label for="tab-padma">Padma Chakra Paddhati</label>
+        </div>
+        <div class="tab-bar-group">
+          <span class="tab-group-heading">Varahamihira Method</span>
+          <label for="tab-brihat-jataka">Brihat Jataka</label>
+        </div>
+        <div class="tab-bar-group">
+          <span class="tab-group-heading">Jaimini Method</span>
+          <label for="tab-jaimini">Jaimini North</label>
+          <label for="tab-jaimini2">Jaimini South</label>
+        </div>
+        <div class="tab-bar-group">
+          <label for="tab-shani">Shani</label>
+          <label for="tab-dosha">Dosha</label>
+          {% if match_report %}<label for="tab-compat">Compatibility</label>{% endif %}
+          <label for="tab-classic-predictions">Classic Predictions</label>
+          <label for="tab-yogas">Yogas</label>
+          <label for="tab-tools">Tools</label>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-laghu-parashari">
+        {% include '_laghu_parashari.html' %}
+      </div>
+      <div class="tab-panel" id="panel-chart">
+        <div class="chart-tab-grid">
+          <div class="chart-tab-left">
+            <div class="panel">
+              <h2 class="section-title">&#128302; Rasi Chakra (D1){% if chart.birth_data.name %} - {{ chart.birth_data.name }}{% endif %}</h2>
+              {% if resolved_place %}
+              <p class="hint">Resolved place: {{ resolved_place }} (lat {{ "%.4f"|format(chart.birth_data.latitude) }},
+                 lon {{ "%.4f"|format(chart.birth_data.longitude) }}, UTC{{ "%+.2f"|format(chart.birth_data.utc_offset_hours) }})</p>
+              {% endif %}
+              {% set moon = chart.planets | selectattr("planet.value", "equalto", "Moon") | first %}
+              <p>Ascendant (Lagna): <strong>{{ chart.ascendant.sign.value }}</strong>
+                 ({{ "%.2f"|format(chart.ascendant.degree_in_sign) }}&deg;)
+                 &nbsp;|&nbsp;
+                 Rasi (Moon sign): <strong>{{ moon.sign.value }}</strong>
+                 ({{ "%.2f"|format(moon.degree_in_sign) }}&deg;)
+                 &nbsp;|&nbsp;
+                 Nakshatra: <strong>{{ moon.nakshatra.name }}</strong> (pada {{ moon.nakshatra.pada }})</p>
+              {{ render_chart_grid(grid, 'D1 · Rasi Chakra') }}
+            </div>
+
+          </div>
+
+          <div class="chart-tab-right">
+            <div class="panel">
+              <h2 class="section-title">&#128302; Planetary Positions</h2>
+              {% if current_mahadasha %}
+              <p class="hint">Current dasha: <strong>{{ current_mahadasha.planet.value }}</strong>
+                {% if current_antardasha %}/ <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
+              </p>
+              {% endif %}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Planet</th><th>Sign</th><th>Degree</th><th>House</th>
+                    <th>Nakshatra</th><th>Pada</th>
+                    <th>Dignity</th><th>Retrograde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in chart.planets %}
+                  <tr>
+                    <td>{{ p.planet.value }}</td>
+                    <td>{{ p.sign.value }}</td>
+                    <td>{{ "%.2f"|format(p.degree_in_sign) }}&deg;</td>
+                    <td>{{ p.house }}</td>
+                    <td>{{ p.nakshatra.name }}</td>
+                    <td>{{ p.nakshatra.pada }}</td>
+                    <td class="{% if p.dignity.value == 'Exalted' %}sav-band-strong{% elif p.dignity.value == 'Debilitated' %}dosha-row{% endif %}">
+                      {{ p.dignity.value }}
+                    </td>
+                    <td>{{ "Yes" if p.retrograde else "No" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p class="hint">
+                Saturn-related afflictions (Shani Dosha, Shani Neech Dosha, Vish Dosha, Shani Mangal Dosha,
+                Shani Rahu Dosha) and Saturn's transit timeline (Sade Sati, Kantaka Shani, Ashtama Shani)
+                have moved to the Shani tab. Kalasarpa/Kuja/Guru Chandala doshas are in the Dosha tab.
+              </p>
+              <div class="kendra-trikona-lords">
+                <div class="lords-block">
+                  <h3 class="lords-title">Kendra Lords (Houses 1, 4, 7)</h3>
+                  <ul class="lords-list">
+                    {% for entry in kendra_lords %}
+                    <li><strong>House {{ entry.house }}</strong> ({{ entry.sign }}) &mdash; {{ entry.lord }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                <div class="lords-block">
+                  <h3 class="lords-title">Trikona Lords (Houses 1, 5, 9)</h3>
+                  <ul class="lords-list">
+                    {% for entry in trikona_lords %}
+                    <li><strong>House {{ entry.house }}</strong> ({{ entry.sign }}) &mdash; {{ entry.lord }}</li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-dasha">
+        <div class="panel">
+          <h2 class="section-title">&#8987; Vimshottari Dasha</h2>
+          {% if current_mahadasha %}
+          <p>Current mahadasha: <strong>{{ current_mahadasha.planet.value }}</strong>
+            {% if current_antardasha %}&mdash; antardasha: <strong>{{ current_antardasha.planet.value }}</strong>{% endif %}
+          </p>
+          {% endif %}
+          <p class="hint">Click "Full breakdown" on any Mahadasha row to see its complete nested
+             Antardasha &rarr; Pratyantardasha &rarr; Sookshma &rarr; Prana table (computed on demand for
+             that one Mahadasha - not pre-computed for the whole chart).</p>
+          <table>
+            <thead><tr><th>Mahadasha</th><th>Start</th><th>End</th><th></th></tr></thead>
+            <tbody>
+              {% for period in chart.dasha.periods %}
+              <tr class="{% if current_mahadasha and period.start==current_mahadasha.start %}current-period{% endif %}">
+                <td><strong>{{ period.planet.value }}</strong></td>
+                <td>{{ period.start.strftime("%d-%m-%Y") }}</td>
+                <td>{{ period.end.strftime("%d-%m-%Y") }}</td>
+                <td>
+                  <form method="post" action="/dasha-detail" class="sub-periods-form">
+                    <input type="hidden" name="lord" value="{{ period.planet.value }}">
+                    <input type="hidden" name="start" value="{{ period.start.isoformat() }}">
+                    <input type="hidden" name="years" value="{{ ((period.end - period.start).total_seconds() / (365.2425 * 86400)) }}">
+                    <button type="submit" class="sub-periods-button">Full breakdown</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-aspects">
+        {% include "_aspects.html" %}
+      </div>
+
+      <div class="tab-panel" id="panel-classic-predictions">
+        <div class="panel">
+          <h2 class="section-title">&#128220; Classic Predictions</h2>
+          <div class="held-chart-notice">
+            <p class="held-chart-title">Content coming soon</p>
+            <p class="hint pending-note">
+              This tab is a placeholder - the specific classical predictions to compute here are still pending.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-yogas">
+        <div class="panel">
+          <h2 class="section-title">&#10024; Yogas</h2>
+          <div class="held-chart-notice">
+            <p class="held-chart-title">Content coming soon</p>
+            <p class="hint pending-note">
+              This tab is a placeholder - the specific yogas to compute here are still pending.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-divisional">
+        <div class="panel">
+          <h2 class="section-title">&#128193; Divisional Charts</h2>
+          <p class="hint">
+            Choose a division to view its full chart. All 23 divisions and Bhava Chalit are available.
+          </p>
+          <div class="subtab-group divisional-subtabs">
+                {% for entry in divisional_chart_entries %}
+                <input type="radio" name="divisional-subtabs" id="subtab-{{ entry.code }}" class="subtab-radio"
+                       {% if entry.code == 'D1' %}checked{% endif %}>
+                <label for="subtab-{{ entry.code }}" class="subtab-label">{{ 'Bhava Chalit' if entry.code == 'bhava_chalit' else entry.code }}</label>
+                <div class="subtab-panel" data-chart-code="{{ entry.code }}">
+                  {% set chart_title = entry.name.split(' (')[0] %}
+                  {% set chart_purpose = entry.name.split(' (')[1].rstrip(')') if ' (' in entry.name else None %}
+                  <div class="divisional-layout{% if entry.amsa_rulers is defined and entry.code != 'D1' %} with-amsa{% endif %}">
+                  <div class="divisional-chart">
+                  {{ render_chart_grid(entry.grid, chart_title, chart_purpose) }}
+                  <p class="hint varga-method">Method: {{ entry.method }}</p>
+                  </div>
+                  {% if entry.amsa_rulers is defined %}
+                  <section class="amsa-rulers" aria-labelledby="amsa-title-{{ entry.code }}">
+                    <h3 id="amsa-title-{{ entry.code }}">&#128329; {{ entry.code }} Amsa rulers</h3>
+                    <p class="hint">{{ entry.amsa_rulers.note }}</p>
+                    <div class="table-scroll" role="region" aria-label="{{ entry.code }} Amsa rulers" tabindex="0">
+                      <table class="compact-table amsa-ruler-table">
+                        <thead><tr><th>Planet / point</th><th>Natal D1 position</th><th>{{ 'Segment' if entry.code == 'D30' else 'Amsa' }}</th><th>Ruler / designation</th><th>Reference</th></tr></thead>
+                        <tbody>{% for ruler in entry.amsa_rulers.rows %}
+                          <tr data-body="{{ ruler.body }}" data-amsa-part="{{ ruler.part }}">
+                            <td><strong>{{ ruler.body }}</strong></td>
+                            <td>{{ ruler.sign }} {{ "%.4f" | format(ruler.degree) }}&deg;</td>
+                            <td>{{ ruler.part }} / {{ ruler.divisions }}<small class="amsa-span">{{ "%.4f" | format(ruler.start) }}&deg;–{{ "%.4f" | format(ruler.end) }}&deg;</small></td>
+                            <td class="amsa-deity">{{ ruler.deity or ('Not separately defined' if ruler.status == 'not_applicable' else 'Not confirmed') }}</td>
+                            <td>{% if ruler.reference %}<a href="{{ entry.amsa_rulers.source_url }}" target="_blank" rel="noopener noreferrer">{{ ruler.reference }} &#8599;</a>{% else %}—{% endif %}</td>
+                          </tr>
+                        {% endfor %}</tbody>
+                      </table>
+                    </div>
+                  </section>
+                  {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-ashtakavarga">
+        <div class="panel">
+          <h2 class="section-title">&#128202; Ashtakavarga (Parasara method)</h2>
+          <p class="hint">
+            BAV shows 0–8 bindus per sign for each of the seven classical planets and the Ascendant
+            (Lagna). Lagna's own chart totals 49 bindus. SAV combines the seven planetary charts
+            and totals 337 bindus across all 12 signs.
+          </p>
+          <div class="ashtakavarga-tiles">
+            {% for tile in ashtakavarga_tiles %}
+            <div class="ashtakavarga-tile" data-ashtaka-planet="{{ tile.key }}">
+              <h3 class="mini-chart-title">{{ tile.label }}</h3>
+              <div class="mini-chart-grid" role="group" aria-label="{{ tile.label }} bindu chart">
+                {% for row in tile.grid %}
+                  {% for cell in row %}
+                    {% if cell is none %}
+                    <div class="mini-chart-cell blank"></div>
+                    {% else %}
+                    <div class="mini-chart-cell" data-sign="{{ cell.sign.value }}" data-bindus="{{ cell.bindus }}"
+                         title="{{ cell.sign.value }}: {{ cell.bindus }} bindus - {{ cell.band_label }}">
+                      <span class="cell-sign chart-sign-header" title="{{ cell.sign.value }}, house {{ cell.house }}"><span class="chart-sign-name">{{ cell.sign.value[:3] }}</span><span class="chart-house-label">H{{ cell.house }}</span></span>
+                      <span class="cell-bindus sav-band-{{ cell.band_class }}">{{ cell.bindus }}</span>
+                    </div>
+                    {% endif %}
+                  {% endfor %}
+                {% endfor %}
+              </div>
+              {% if tile.caption %}<p class="hint ashtaka-caption">{{ tile.caption }}</p>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <details class="lagna-ashtaka-rules">
+            <summary>Ascendant (Lagna) · Rules &amp; calculations</summary>
+            <p class="hint">Count each contributor's natal sign as 1 and move forward through the zodiac.
+              Each listed position earns one bindu. Add the eight contributions for each sign to get
+              its Lagna BAV score, from 0 to 8. These are the original scores before any reductions.</p>
+            <table class="compact-table" aria-label="Lagna Ashtakavarga contribution rules">
+              <thead><tr><th>Contributor</th><th>Natal sign</th><th>Favorable positions from contributor</th><th>Points</th></tr></thead>
+              <tbody>{% for row in lagna_ashtakavarga_calculation.rules %}
+                <tr><td>{{ row.contributor }}</td><td>{{ row.sign }}</td><td>{{ row.houses }}</td><td>{{ row.points }}</td></tr>
+              {% endfor %}</tbody>
+              <tfoot><tr><th colspan="3">Lagna BAV total</th><td>{{ lagna_ashtakavarga_calculation.total }}</td></tr></tfoot>
+            </table>
+            <h3>Your sign-by-sign calculation</h3>
+            <table class="compact-table" aria-label="Lagna Ashtakavarga sign calculations">
+              <thead><tr><th>Sign</th><th>Natal house</th><th>Contributors giving one bindu each</th><th>Bindus</th></tr></thead>
+              <tbody>{% for row in lagna_ashtakavarga_calculation.scores %}
+                <tr><td>{{ row.sign }}</td><td>H{{ row.house }}</td><td>{{ row.contributors }}</td><td>{{ row.score }}</td></tr>
+              {% endfor %}</tbody>
+            </table>
+            <p class="hint">The Lagna chart is shown separately. SAV and Bhava Ashtakavarga retain their
+              seven-planet total of 337 bindus.</p>
+          </details>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#127968; Bhava Ashtakavarga</h2>
+          <p class="hint">
+            SAV totals redistributed onto actual house-cusp boundaries (Bhava Chalit / Placidus), read
+            against the classical score bands below.
+          </p>
+          <div class="bhava-bar-chart">
+            {% for row in bhava_ashtakavarga_rows %}
+            <div class="bhava-bar-row" title="House {{ row.house }}: {{ row.score }} - {{ row.band_label }}">
+              <span class="bhava-bar-value">{{ row.score }}</span>
+              <div class="bhava-bar-track">
+                <div class="bhava-bar-fill sav-band-{{ row.band_class }}"
+                     style="height: {{ (row.score / 56 * 100) | round(1) }}%;"></div>
+              </div>
+              <span class="bhava-bar-axis">H{{ row.house }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <table class="compact-table">
+            <thead><tr><th>House</th><th>Score</th><th>Reading</th></tr></thead>
+            <tbody>
+              {% for row in bhava_ashtakavarga_rows %}
+              <tr>
+                <td>House {{ row.house }}</td>
+                <td>{{ row.score }}</td>
+                <td class="sav-band-{{ row.band_class }}">{{ row.band_label }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <table class="sav-legend">
+            <thead><tr><th>Score range</th><th>Strength level</th></tr></thead>
+            <tbody>
+              <tr><td>Below 20</td><td class="sav-band-critically-weak">&#9888;&#65039; Critically Weak</td></tr>
+              <tr><td>20 to 25</td><td class="sav-band-below-average">&#128201; Below Average</td></tr>
+              <tr><td>25 to 28</td><td class="sav-band-average">&#128202; Average / Neutral</td></tr>
+              <tr><td>28 to 32</td><td class="sav-band-strong">&#128200; Strong</td></tr>
+              <tr><td>Above 32</td><td class="sav-band-exceptional">&#10024; Exceptionally Powerful</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-shani">
+        <div class="panel">
+          <h2 class="section-title">&#9917; Shani (Saturn) Analysis</h2>
+          <div class="subtab-group">
+            <input type="radio" name="shani-subtabs" id="subtab-shani-natal" class="subtab-radio" checked>
+            <label for="subtab-shani-natal" class="subtab-label">Natal Saturn Doshas</label>
+            <div class="subtab-panel">
+              <table>
+                <tbody>
+                  <tr>
+                    <th>Shani Dosha (house)</th>
+                    <td class="{% if chart.shani_dosha.has_house_dosha %}dosha-row{% endif %}">{{ chart.shani_dosha.house_reason }}</td>
+                  </tr>
+                  <tr>
+                    <th>Shani Neech Dosha</th>
+                    <td class="{% if chart.shani_dosha.has_neech_dosha %}dosha-row{% endif %}">{{ chart.shani_dosha.neech_reason }}</td>
+                  </tr>
+                  <tr>
+                    <th>{{ chart.saturn_afflictions.vish_dosha.name }}</th>
+                    <td class="{% if chart.saturn_afflictions.vish_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.saturn_afflictions.vish_dosha.reason }}</td>
+                  </tr>
+                  <tr>
+                    <th>{{ chart.saturn_afflictions.shani_mangal_dosha.name }}</th>
+                    <td class="{% if chart.saturn_afflictions.shani_mangal_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.saturn_afflictions.shani_mangal_dosha.reason }}</td>
+                  </tr>
+                  <tr>
+                    <th>{{ chart.saturn_afflictions.shani_rahu_dosha.name }}</th>
+                    <td class="{% if chart.saturn_afflictions.shani_rahu_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.saturn_afflictions.shani_rahu_dosha.reason }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <input type="radio" name="shani-subtabs" id="subtab-shani-sadesati" class="subtab-radio">
+            <label for="subtab-shani-sadesati" class="subtab-label">Sade Sati</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                Phase 1 (Rising) = Saturn in the 12th sign from your Moon sign; Phase 2 (Peak) = directly over
+                your Moon sign; Phase 3 (Setting) = the 2nd sign from your Moon sign. Scanned across your full
+                lifetime (birth to +100 years) - dates are accurate to within about half a day. A phase can
+                appear more than once per cycle if Saturn's retrograde motion revisited it.
+              </p>
+              {% for row in sade_sati_rows %}
+              <div class="transit-cycle">
+                <h3 class="transit-cycle-title">
+                  Cycle {{ loop.index }}
+                  <span class="status-badge status-{{ row.status | lower }}">{{ row.status }}</span>
+                  &mdash; {{ row.cycle.start.strftime("%d-%m-%Y") }} to {{ row.cycle.end.strftime("%d-%m-%Y") }}
+                </h3>
+                {% if row.cycle.truncated_at_start %}
+                <p class="hint">Saturn was already in this phase at birth - the start date shown is the birth date.</p>
+                {% endif %}
+                <table>
+                  <thead><tr><th>Phase</th><th>Sign</th><th>Start</th><th>End</th></tr></thead>
+                  <tbody>
+                    {% for seg in row.cycle.segments %}
+                    <tr>
+                      <td>Phase {{ seg.phase }}</td>
+                      <td>{{ seg.segment.sign.value }}</td>
+                      <td>{{ seg.segment.start.strftime("%d-%m-%Y") }}</td>
+                      <td>{{ seg.segment.end.strftime("%d-%m-%Y") }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endfor %}
+            </div>
+
+            <input type="radio" name="shani-subtabs" id="subtab-shani-ashtama" class="subtab-radio">
+            <label for="subtab-shani-ashtama" class="subtab-label">Ashtama Shani</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                Saturn transiting the 8th sign from your Moon - distinct from the natal Ashtama Shani dosha
+                (Saturn placed in the 8th house at birth) shown in the Natal Saturn Doshas tab; this is about
+                when transiting Saturn passes through that sign during your life.
+              </p>
+              <table>
+                <thead><tr><th>Start</th><th>End</th></tr></thead>
+                <tbody>
+                  {% for occ in chart.saturn_transit.ashtama_shani_transit %}
+                  <tr>
+                    <td>{{ occ.start.strftime("%d-%m-%Y") }}</td>
+                    <td>{{ occ.end.strftime("%d-%m-%Y") }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <input type="radio" name="shani-subtabs" id="subtab-shani-kantaka" class="subtab-radio">
+            <label for="subtab-shani-kantaka" class="subtab-label">Kantaka Shani</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                Saturn transiting the 4th, 7th, or 10th house (Kendra/angular houses) - counted from both your
+                Moon sign and your Ascendant, per the classical rule that considers either base sign.
+              </p>
+              <h3 class="section-subtitle">From Moon (Janma Rashi)</h3>
+              <table>
+                <thead><tr><th>House</th><th>Start</th><th>End</th></tr></thead>
+                <tbody>
+                  {% for house_group in chart.saturn_transit.kantaka_shani_from_moon %}
+                    {% for occ in house_group.occurrences %}
+                    <tr>
+                      <td>House {{ house_group.house }}</td>
+                      <td>{{ occ.start.strftime("%d-%m-%Y") }}</td>
+                      <td>{{ occ.end.strftime("%d-%m-%Y") }}</td>
+                    </tr>
+                    {% endfor %}
+                  {% endfor %}
+                </tbody>
+              </table>
+              <h3 class="section-subtitle">From Lagna (Ascendant)</h3>
+              <table>
+                <thead><tr><th>House</th><th>Start</th><th>End</th></tr></thead>
+                <tbody>
+                  {% for house_group in chart.saturn_transit.kantaka_shani_from_lagna %}
+                    {% for occ in house_group.occurrences %}
+                    <tr>
+                      <td>House {{ house_group.house }}</td>
+                      <td>{{ occ.start.strftime("%d-%m-%Y") }}</td>
+                      <td>{{ occ.end.strftime("%d-%m-%Y") }}</td>
+                    </tr>
+                    {% endfor %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-dosha">
+        <div class="panel">
+          <h2 class="section-title">&#128010; Kalasarpa Dosha</h2>
+          <p class="hint">
+            Forms when all 7 classical planets fall on one side of the Rahu-Ketu axis. The 12 named types
+            (by Rahu's house) are commonly cited but spelling varies slightly across sources.
+          </p>
+          <table>
+            <tbody>
+              <tr>
+                <th>Result</th>
+                <td class="{% if chart.kalasarpa_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.kalasarpa_dosha.reason }}</td>
+              </tr>
+              {% if chart.kalasarpa_dosha.dosha_type %}
+              <tr><th>Type</th><td>{{ chart.kalasarpa_dosha.dosha_type }}</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#128293; Kuja Dosha (Mangal Dosha / Angaraka Dosha)</h2>
+          <p class="hint">
+            The classical 3-reference-point check: Mars in houses 1/2/4/7/8/12 from Lagna, Moon, and Venus
+            separately. Triggering from Lagna is the strongest ("High/Full Manglik"); from Moon or Venus
+            only is weaker ("Low/Partial Manglik"). Separate from, and additional to, the Lagna-only Mangal
+            Dosha check on the Compatibility tab.
+          </p>
+          <table>
+            <thead><tr><th>Reference</th><th>Mars house</th><th>Result</th></tr></thead>
+            <tbody>
+              {% for rp in chart.kuja_dosha.reference_points %}
+              <tr class="{% if rp.has_dosha %}dosha-row{% endif %}">
+                <td>{{ rp.reference }}</td>
+                <td>House {{ rp.mars_house }}</td>
+                <td>{{ "Dosha" if rp.has_dosha else "No dosha" }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="total-row">
+                <td colspan="2">Overall</td>
+                <td>{{ chart.kuja_dosha.overall_classification }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#128218; Guru Chandala Dosha</h2>
+          <table>
+            <tbody>
+              <tr>
+                <th>Result</th>
+                <td class="{% if chart.guru_chandala_dosha.has_dosha %}dosha-row{% endif %}">{{ chart.guru_chandala_dosha.reason }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">&#127765; Punarphoo Dosha (Punarapu)</h2>
+          <p class="hint">
+            Forms when Saturn and the Moon are linked by conjunction, mutual aspect (Saturn's 3rd/7th/10th),
+            or a mutual Nakshatra-lordship connection. Cancelled (Punarphoo Bhanga) when the Sun conjoins
+            both Saturn and the Moon, or when either is in a Nakshatra ruled by the Sun.
+          </p>
+          <table>
+            <tbody>
+              <tr>
+                <th>Result</th>
+                <td class="{% if chart.punarphoo_dosha.has_dosha and not chart.punarphoo_dosha.is_cancelled %}dosha-row{% endif %}">
+                  {{ chart.punarphoo_dosha.reason }}
+                </td>
+              </tr>
+              <tr>
+                <th>Conjunction / aspect link</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.conjunction_or_aspect else "No" }}</td>
+              </tr>
+              <tr>
+                <th>Moon in a Saturn-ruled Nakshatra</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.moon_in_saturn_nakshatra else "No" }}</td>
+              </tr>
+              <tr>
+                <th>Saturn in a Moon-ruled Nakshatra</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.saturn_in_moon_nakshatra else "No" }}</td>
+              </tr>
+              {% if chart.punarphoo_dosha.has_dosha %}
+              <tr>
+                <th>Cancelled (Punarphoo Bhanga)</th>
+                <td>{{ "Yes" if chart.punarphoo_dosha.is_cancelled else "No" }}</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-balas">
+        <div class="panel">
+          <h2 class="section-title">&#9878;&#65039; Strengths (Classical Strength Scores)</h2>
+          {% include '_bala_details.html' %}
+          <div class="subtab-group">
+            <input type="radio" name="balas-subtabs" id="subtab-balas-sadbala" class="subtab-radio" checked>
+            <label for="subtab-balas-sadbala" class="subtab-label">Shadbala</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                The six-fold classical planetary strength, in Rupas (60 Virupas = 1 Rupa). Masa Bala,
+                Varsha Bala, and Yuddha Bala are not shown - their exact classical formulas weren't
+                confirmed against a reliable source, so nothing is guessed here. Chesta Bala uses a
+                simplified 4-state reading (retrograde / stationary / slower or faster than mean motion)
+                rather than the full classical 8-state scale, for the same reason.
+              </p>
+              {{ bala_graph(shadbala_rows, 'total_rupas', shadbala_graph_max, 'Shadbala · total planetary strength', 'Rupas', required=True) }}
+              <table class="compact-table wide">
+                <thead>
+                  <tr>
+                    <th>Planet</th><th>Sthana</th><th>Dig</th><th>Kala</th><th>Chesta</th>
+                    <th>Naisargika</th><th>Drik</th><th>Total (Rupas)</th><th>Required</th>
+                    <th>Status</th><th>Ishta</th><th>Kashta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in shadbala_rows %}
+                  <tr>
+                    <td>{{ row.planet }}</td>
+                    <td>{{ row.sthana }}</td>
+                    <td>{{ row.dig }}</td>
+                    <td>{{ row.kala }}</td>
+                    <td>{{ row.chesta }}</td>
+                    <td>{{ row.naisargika }}</td>
+                    <td>{{ row.drik }}</td>
+                    <td><strong>{{ row.total_rupas }}</strong></td>
+                    <td>{{ row.required_rupas }}</td>
+                    <td class="{% if row.meets %}sav-band-strong{% else %}sav-band-below-average{% endif %}">
+                      {{ "Strong Enough" if row.meets else "Below Required" }}
+                    </td>
+                    <td>{{ row.ishta_phala }}</td>
+                    <td>{{ row.kashta_phala }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <input type="radio" name="balas-subtabs" id="subtab-balas-vimshopaka" class="subtab-radio">
+            <label for="subtab-balas-vimshopaka" class="subtab-label">Vimshopaka Bala</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                A score out of 20, calculated from each planet's divisional signs and its relationship
+                with their sign lords. All four schemes use your birth chart: 6, 7, 10 and 16 divisions.
+              </p>
+              <div class="bala-varga-graphs">
+                {{ bala_graph(vimshopaka_rows, 'shadvarga_score', 20, 'Shadvarga · 6 charts', 'Points out of 20') }}
+                {{ bala_graph(vimshopaka_rows, 'saptavarga_score', 20, 'Saptavarga · 7 charts', 'Points out of 20') }}
+                {{ bala_graph(vimshopaka_rows, 'dashavarga_score', 20, 'Dashavarga · 10 charts', 'Points out of 20') }}
+                {{ bala_graph(vimshopaka_rows, 'shodashavarga_score', 20, 'Shodashavarga · 16 charts', 'Points out of 20') }}
+              </div>
+              <table class="compact-table wide">
+                <thead>
+                  <tr>
+                    <th>Planet</th><th>Shadvarga · 6</th><th>Reading</th><th>Saptavarga · 7</th><th>Reading</th><th>Dashavarga · 10</th><th>Reading</th><th>Shodashavarga · 16</th><th>Reading</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in vimshopaka_rows %}
+                  <tr>
+                    <td>{{ row.planet }}</td>
+                    <td>{{ row.shadvarga_score }} / 20</td>
+                    <td>{{ row.shadvarga_band }}</td>
+                    <td>{{ row.saptavarga_score }} / 20</td>
+                    <td>{{ row.saptavarga_band }}</td>
+                    <td>{{ row.dashavarga_score }} / 20</td>
+                    <td>{{ row.dashavarga_band }}</td>
+                    <td>{{ row.shodashavarga_score }} / 20</td>
+                    <td>{{ row.shodashavarga_band }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <details class="bala-calculation-details"><summary>Divisional weights and calculation</summary>
+                <p class="hint">Each contribution = chart weight × relationship points ÷ 20. Add the contributions for the selected scheme. Own sign: 20; great friend: 18; friend: 15; neutral: 10; enemy: 7; great enemy: 5. Friendship combines natural relationships with temporary relationships from the natal D1 chart.</p>
+                <table class="compact-table"><thead><tr><th>Division</th><th>Shadvarga</th><th>Saptavarga</th><th>Dashavarga</th><th>Shodashavarga</th></tr></thead><tbody>
+                  {% for weight in vimshopaka_weights %}<tr><th>{{ weight.code }}</th>{% for scheme in ['shadvarga', 'saptavarga', 'dashavarga', 'shodashavarga'] %}<td>{{ weight[scheme] if weight[scheme] else '—' }}</td>{% endfor %}</tr>{% endfor %}
+                  <tr><th>Total weight</th><td>20</td><td>20</td><td>20</td><td>20</td></tr>
+                </tbody></table>
+              </details>
+            </div>
+
+            <input type="radio" name="balas-subtabs" id="subtab-balas-bhava" class="subtab-radio">
+            <label for="subtab-balas-bhava" class="subtab-label">Bhava Bala</label>
+            <div class="subtab-panel">
+              <p class="hint">
+                House strength in Rupas: the house lord's own Shadbala, plus directional and aspect
+                strength for the house itself. No fixed "strong house" threshold is applied (none is
+                stated in BPHS) - houses are ranked relative to each other in this chart instead.
+              </p>
+              {{ bala_graph(bhava_bala_rows, 'total_rupas', bhava_bala_graph_max, 'Bhava Bala · house strength', 'Rupas', houses=True) }}
+              <table class="compact-table wide">
+                <thead>
+                  <tr><th>House</th><th>House lord</th><th>Bhavadhipati</th><th>Dig</th><th>Drishti</th><th>Occupancy</th><th>Total</th></tr>
+                </thead>
+                <tbody>
+                  {% for row in bhava_bala_rows %}
+                  <tr>
+                    <td>House {{ row.house }}</td>
+                    <td class="planet-color-{{ row.lord | lower }}">{{ row.lord }}</td>
+                    <td>{{ row.bhavadhipati }}</td>
+                    <td>{{ row.dig }}</td>
+                    <td>{{ row.drishti }}</td>
+                    <td>{{ row.occupancy }}</td>
+                    <td><strong>{{ row.total_rupas }}</strong></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-bcp">
+        <div class="panel">
+              <h2 class="section-title">&#128302; Bhrigu Chakra Paddhati (BCP)</h2>
+              <p class="hint">
+                Classical rule: 1 house = 1 year of life, counted linearly from the Ascendant, repeating
+                every 12 years (year 13 starts again from the 1st house). This tab also applies M. Imran's
+                Cycle-Ruler extension (Saptarishis Astrology) - each 12-year block is additionally governed
+                by a Chakra Swami (cycle ruler) in the fixed sequence Moon &rarr; Mercury &rarr; Venus &rarr;
+                Sun &rarr; Mars &rarr; Jupiter &rarr; Saturn &rarr; Rahu &rarr; Ketu, and the same
+                house-position-in-cycle is counted a second time from that planet's own natal sign. The
+                source only names 9 cycle rulers, so past age 108 only the Lagna-based house is shown.
+              </p>
+              {{ render_chart_grid(grid, 'D1 · Bhrigu Chakra') }}
+
+              <div class="bcp-year-picker">
+                <label for="bcp-year-select"><strong>Select year of life:</strong></label>
+                <select id="bcp-year-select"
+                        onchange="document.querySelectorAll('.bcp-year-detail').forEach(function(el){ el.hidden = true; }); document.getElementById('bcp-year-' + this.value).hidden = false;">
+                  {% for row in chart.bhrigu_chakra %}
+                  <option value="{{ row.age }}">Year {{ row.age }}{% if row.cycle_ruler %} (cycle {{ row.cycle_number }} - {{ row.cycle_ruler.value }}){% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              {% for row in chart.bhrigu_chakra %}
+              <div class="bcp-year-detail" id="bcp-year-{{ row.age }}" {% if row.age != 1 %}hidden{% endif %}>
+                <table class="compact-table">
+                  <tbody>
+                    <tr>
+                      <th>House from Lagna</th>
+                      <td>House {{ row.house_from_lagna }} - <strong>{{ row.sign_from_lagna.value }}</strong>
+                        {% if row.planets_from_lagna %}
+                        ({{ row.planets_from_lagna | map(attribute="value") | join(", ") }})
+                        {% else %}
+                        (no planets here)
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% if row.cycle_ruler %}
+                    <tr>
+                      <th>Chakra Swami (Cycle Ruler)</th>
+                      <td><strong>{{ row.cycle_ruler.value }}</strong> (cycle {{ row.cycle_number }})</td>
+                    </tr>
+                    <tr>
+                      <th>House from Cycle Ruler</th>
+                      <td>House {{ row.house_from_cycle_ruler }} from {{ row.cycle_ruler.value }} -
+                        <strong>{{ row.sign_from_cycle_ruler.value }}</strong>
+                        {% if row.planets_from_cycle_ruler %}
+                        ({{ row.planets_from_cycle_ruler | map(attribute="value") | join(", ") }})
+                        {% else %}
+                        (no planets here)
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                      <th>Chakra Swami (Cycle Ruler)</th>
+                      <td class="hint">Not defined by this source past age 108 - only the classical
+                        Lagna-based house above applies.</td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+              {% endfor %}
+
+              {% if chart.bcp_longevity %}
+              <h2 class="section-title">&#9888;&#65039; BCP Longevity Indication</h2>
+              <p class="hint">
+                Source: "Bhrigu Chakra Paddhati &amp; Longevity" by Sampath Kumar Medavarapu
+                (Saptarishis Astrology, ed. M. Imran). This is the article's own tentative research
+                proposal, not an established technique - it says so itself: these two rules "cannot
+                supersede fundamental longevity approach... astrologers should first determine whether
+                native is destined to lead a short, middle or long life," and even the article's own
+                worked examples include a case where the rule does not fit. Treat the years below as
+                years this specific published rule flags for extra attention, not as a prediction.
+              </p>
+              <p><strong>{{ chart.bcp_longevity.rule }} applies:</strong> {{ chart.bcp_longevity.reason }}</p>
+              <table class="compact-table">
+                <thead><tr><th>Watch</th><th>House (from Lagna)</th><th>Sign</th><th>Flagged ages</th></tr></thead>
+                <tbody>
+                  {% for h in chart.bcp_longevity.flagged_houses %}
+                  <tr>
+                    <td>{{ h.label }}</td>
+                    <td>House {{ h.house_from_lagna }}</td>
+                    <td>{{ h.sign.value }}</td>
+                    <td>{{ h.ages | join(", ") }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% endif %}
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-bsp">
+        <div class="panel">
+              <h2 class="section-title">&#128302; Bhrigu Sarala Paddhati</h2>
+              <p class="hint">
+                Original age rules use the stated running year and house offset. Special-status
+                reasons describe a separate research interpretation, not a universal gate on these
+                original rules. BSP-3/4, BSP-7/12 and later extensions remain outside the verified set.
+              </p>
+              <table class="compact-table wide">
+                <thead>
+                  <tr><th>Rule</th><th>Planet</th><th>Status</th><th>Age</th><th>Affected house</th><th>Reasons / notes</th></tr>
+                </thead>
+                <tbody>
+                  {% for r in chart.bsp_rules %}
+                  <tr>
+                    <td>#{{ r.rule_number }}</td>
+                    <td>{{ r.planet.value }}</td>
+                    <td>Year {{ r.age }}</td>
+                    <td>{{ r.age }}</td>
+                    <td>
+                      {% if r.affected_house_from_lagna %}
+                      House {{ r.affected_house_from_lagna }} - {{ r.affected_sign.value }}
+                      {% else %}
+                      &mdash;
+                      {% endif %}
+                    </td>
+                    <td class="hint">
+                      {% if r.special_status_reasons %}
+                      Research qualifiers: {{ r.special_status_reasons | join("; ") }}
+                      {% else %}
+                      No research qualifier matched; the original age rule still applies.
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+
+              <h3 class="section-subtitle">Permanent House Notes (BSP-1, 2, 14)</h3>
+              <p class="hint">Unlike the age-timed rules above, these apply for the person's whole life, not just one year.</p>
+              <table class="compact-table">
+                <thead><tr><th>Rule</th><th>Title</th><th>House</th><th>Sign</th><th>Planets there</th></tr></thead>
+                <tbody>
+                  {% for n in chart.bsp_house_notes %}
+                  <tr>
+                    <td>#{{ n.rule_number }}</td>
+                    <td>{{ n.title }}</td>
+                    <td>House {{ n.house_from_lagna }}</td>
+                    <td>{{ n.sign.value }}</td>
+                    <td>{% if n.planets_in_house %}{{ n.planets_in_house | map(attribute="value") | join(", ") }}{% else %}&mdash;{% endif %}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+
+              <h3 class="section-subtitle">BSP-5: Aries Spoilt (Jupiter + Saturn Conjunct)</h3>
+              {% if chart.bsp_aries_spoilt %}
+              <p>Jupiter and Saturn are conjunct in this chart - House {{ chart.bsp_aries_spoilt.house_from_lagna }}
+                 (where Aries falls) is spoilt/activated.
+                 {% if chart.bsp_aries_spoilt.planets_in_house %}
+                 Planets there: {{ chart.bsp_aries_spoilt.planets_in_house | map(attribute="value") | join(", ") }}.
+                 {% endif %}
+              </p>
+              {% else %}
+              <p class="hint">Jupiter and Saturn are not conjunct in this chart - BSP-5 does not apply.</p>
+              {% endif %}
+
+              <h3 class="section-subtitle">BSP-15: Shukra (Venus) Reveals</h3>
+              <p class="hint">
+                Qualitative per the source itself ("can, not will") - Venus's house, or a conjunct
+                planet's own house-lordships, "can" indicate disease/medical expense, death, or dramatic
+                trouble; Venus can also afflict the 12th house from itself. Not a strict prediction.
+              </p>
+              {% if chart.bsp_venus_reveals %}
+              <table class="compact-table">
+                <tbody>
+                  <tr>
+                    <th>Venus's house</th>
+                    <td>House {{ chart.bsp_venus_reveals.venus_house_from_lagna }} - {{ chart.bsp_venus_reveals.venus_sign.value }}</td>
+                  </tr>
+                  <tr>
+                    <th>Conjunct planets</th>
+                    <td>
+                      {% if chart.bsp_venus_reveals.conjunct_planets %}
+                      {% for p in chart.bsp_venus_reveals.conjunct_planets %}
+                      {{ p.value }} (rules house{{ "s" if chart.bsp_venus_reveals.conjunct_planet_lordships[p.value] | length > 1 }}
+                      {{ chart.bsp_venus_reveals.conjunct_planet_lordships[p.value] | join(", ") }}){% if not loop.last %}; {% endif %}
+                      {% endfor %}
+                      {% else %}
+                      None
+                      {% endif %}
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>12th from Venus</th>
+                    <td>House {{ chart.bsp_venus_reveals.twelfth_from_venus_house_from_lagna }} - {{ chart.bsp_venus_reveals.twelfth_from_venus_sign.value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              {% endif %}
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-padma">
+        <div class="panel">
+              <h2 class="section-title">&#127799; Padma Chakra Paddhati</h2>
+              <p class="hint">
+                Source: "Padma Chakra Paddhati Method Explained" by Gautam Dave and "Use of Dwadasamsa
+                Chart in Prediction" by Pramod Bhavasar (Saptarishis Astrology) - a year-by-year method
+                using the Dwadasamsa (D12) chart. Each year's house-lord's own D12 sign is superimposed
+                back onto the Rasi chart as a house to watch; a year is flagged Badhaka (obstruction)
+                when that superimposed house matches the Badhaka house of either the natal Ascendant or
+                its own D12 Ascendant. Year start/end dates reproduce the source's own 360-day-year
+                calendar-drift formula (see padma_chakra.py for the exact rounding steps verified
+                against the source's own worked example).
+              </p>
+              <table class="compact-table">
+                <thead><tr><th></th><th>Ascendant</th><th>Modality</th><th>Badhaka house</th><th>Badhaka sign</th><th>Badhakesh</th></tr></thead>
+                <tbody>
+                  {% if chart.badhaka_d1 %}
+                  <tr>
+                    <td>D1 (natal)</td>
+                    <td>{{ chart.badhaka_d1.ascendant_sign.value }}</td>
+                    <td>{{ chart.badhaka_d1.modality }}</td>
+                    <td>House {{ chart.badhaka_d1.badhaka_house_from_lagna }}</td>
+                    <td>{{ chart.badhaka_d1.badhaka_sign.value }}</td>
+                    <td>{{ chart.badhaka_d1.badhakesh.value }}</td>
+                  </tr>
+                  {% endif %}
+                  {% if chart.badhaka_d12 %}
+                  <tr>
+                    <td>D12 (Dwadasamsa)</td>
+                    <td>{{ chart.badhaka_d12.ascendant_sign.value }}</td>
+                    <td>{{ chart.badhaka_d12.modality }}</td>
+                    <td>House {{ chart.badhaka_d12.badhaka_house_from_lagna }}</td>
+                    <td>{{ chart.badhaka_d12.badhaka_sign.value }}</td>
+                    <td>{{ chart.badhaka_d12.badhakesh.value }}</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+
+              <div class="bcp-year-picker">
+                <label for="padma-year-select"><strong>Select year of life:</strong></label>
+                <select id="padma-year-select"
+                        onchange="document.querySelectorAll('.padma-year-detail').forEach(function(el){ el.hidden = true; }); document.getElementById('padma-year-' + this.value).hidden = false;">
+                  {% for row in chart.padma_chakra %}
+                  <option value="{{ row.age }}">Year {{ row.age }}{% if row.is_badhaka %} (Badhaka){% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              {% for row in chart.padma_chakra %}
+              <div class="padma-year-detail" id="padma-year-{{ row.age }}" {% if row.age != 1 %}hidden{% endif %}>
+                <table class="compact-table">
+                  <tbody>
+                    <tr><th>Period</th><td>{{ row.start_date.strftime("%d-%m-%Y") }} to {{ row.end_date.strftime("%d-%m-%Y") }}</td></tr>
+                    <tr><th>House / Sign</th><td>House {{ row.house_from_lagna }} - {{ row.sign.value }}</td></tr>
+                    <tr><th>Year Lord</th><td>{{ row.year_lord.value }}</td></tr>
+                    <tr><th>Year Lord's D12 sign</th><td>{{ row.year_lord_dwadasamsa_sign.value }}</td></tr>
+                    <tr><th>Superimposed house (D1)</th><td>House {{ row.superimposed_house_from_lagna }}</td></tr>
+                    <tr>
+                      <th>Badhaka?</th>
+                      <td>{% if row.is_badhaka %}<strong>Yes - obstruction flagged</strong>{% else %}No{% endif %}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              {% endfor %}
+        </div>
+      </div>
+
+      {% include '_brihat_jataka.html' %}
+      {% include '_jaimini.html' %}
+      {% include '_jaimini2.html' %}
+
+      <div class="tab-panel" id="panel-panchanga">
+        <div class="panel">
+          <h2 class="section-title">&#128197; Panchanga</h2>
+          <table>
+            <tbody>
+              <tr><th>Tithi</th><td>{{ chart.panchanga.tithi.name }} ({{ chart.panchanga.paksha }} Paksha)</td></tr>
+              <tr><th>Vara</th><td>{{ chart.panchanga.vara }}</td></tr>
+              <tr><th>Nakshatra</th><td>{{ chart.panchanga.nakshatra.name }}</td></tr>
+              <tr><th>Yoga</th><td>{{ chart.panchanga.yoga.name }}</td></tr>
+              <tr><th>Karana</th><td>{{ chart.panchanga.karana.name }}</td></tr>
+              {% if chart.panchanga.hora %}
+              {% set hora = chart.panchanga.hora %}
+              <tr class="birth-hora-row"><th>Birth hora</th><td>
+                <strong class="planet-color-{{ hora.lord.value | lower }}">{{ hora.lord.value }} hora</strong>
+                <small>{{ hora.phase }} hora {{ hora.index if hora.phase == 'Day' else hora.index - 12 }} of 12 · Hora {{ hora.index }} of 24</small>
+              </td></tr>
+              <tr><th>Hora starts</th><td><time data-hora-start datetime="{{ hora.start.isoformat() }}">{{ hora.start.strftime('%d %b %Y, %I:%M:%S %p') }}</time></td></tr>
+              <tr><th>Hora ends</th><td><time data-hora-end datetime="{{ hora.end.isoformat() }}">{{ hora.end.strftime('%d %b %Y, %I:%M:%S %p') }}</time></td></tr>
+              <tr><th>Hora duration</th><td>{{ '%.2f' | format(hora.duration_minutes) }} minutes</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+          {% if chart.panchanga.hora %}
+          {% set hora = chart.panchanga.hora %}
+          {% set offset_minutes = (chart.birth_data.utc_offset_hours * 60) | round | int %}
+          {% set absolute_offset = offset_minutes | abs %}
+          <p class="hint birth-hora-timezone">Hora times use the birth location’s local time (UTC{{ '+' if offset_minutes >= 0 else '-' }}{{ '%02d:%02d' | format(absolute_offset // 60, absolute_offset % 60) }}).</p>
+          <details class="birth-hora-rules"><summary>Hora rules &amp; calculation</summary>
+            <p>The first hora starts at sunrise with the weekday’s ruling planet. Repeat Saturn → Jupiter → Mars → Sun → Venus → Mercury → Moon, starting from that ruler.</p>
+            <p>Day hora duration = (sunset − sunrise) ÷ 12. Night hora duration = (next sunrise − sunset) ÷ 12. For a birth before sunrise, the sequence starts from the previous day’s sunrise.</p>
+            <table class="compact-table"><tbody>
+              <tr><th>Sunrise starting this sequence</th><td>{{ hora.sunrise.strftime('%d %b %Y, %I:%M:%S %p') }} · {{ hora.sunrise_day_lord.value }}</td></tr>
+              <tr><th>Sunset</th><td>{{ hora.sunset.strftime('%d %b %Y, %I:%M:%S %p') }}</td></tr>
+              <tr><th>Next sunrise</th><td>{{ hora.next_sunrise.strftime('%d %b %Y, %I:%M:%S %p') }}</td></tr>
+              <tr><th>Calculation at birth</th><td>{{ hora.phase }} interval ÷ 12 = {{ '%.2f' | format(hora.duration_minutes) }} minutes per hora; birth falls in hora {{ hora.index }} → {{ hora.lord.value }}.</td></tr>
+            </tbody></table>
+          </details>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if match_report %}
+      <div class="tab-panel" id="panel-compat">
+        <div class="panel">
+          <h2 class="section-title">&#128156; Marriage compatibility (Ashtakoot Guna Milan)</h2>
+          {% if resolved_place_b %}
+          <p class="hint">Second person's resolved place: {{ resolved_place_b }}</p>
+          {% endif %}
+          <p>
+            First person &mdash; Rasi: <strong>{{ match_report.bride_moon_sign.value }}</strong>,
+            Nakshatra: <strong>{{ match_report.bride_nakshatra }}</strong>
+            &nbsp;|&nbsp;
+            Second person &mdash; Rasi: <strong>{{ match_report.groom_moon_sign.value }}</strong>,
+            Nakshatra: <strong>{{ match_report.groom_nakshatra }}</strong>
+          </p>
+          <table>
+            <thead><tr><th>Koota</th><th>Points</th><th>Details</th></tr></thead>
+            <tbody>
+              {% for k in match_report.kootas %}
+              <tr class="{% if k.points_earned==0 %}dosha-row{% endif %}">
+                <td>{{ k.name }}</td>
+                <td>{{ k.points_earned }} / {{ k.max_points|int }}</td>
+                <td>{{ k.reason }}</td>
+              </tr>
+              {% endfor %}
+              <tr class="total-row">
+                <td><strong>Total</strong></td>
+                <td><strong>{{ match_report.total_points }} / {{ match_report.max_points|int }}</strong></td>
+                <td><strong>{{ match_report.verdict }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3 class="section-title">&#9888;&#65039; Mangal Dosha (Mars affliction)</h3>
+          <table>
+            <tbody>
+              <tr>
+                <th>First person</th>
+                <td class="{% if match_report.bride_mangal_dosha.has_dosha %}dosha-row{% endif %}">
+                  {{ match_report.bride_mangal_dosha.reason }}
+                </td>
+              </tr>
+              <tr>
+                <th>Second person</th>
+                <td class="{% if match_report.groom_mangal_dosha.has_dosha %}dosha-row{% endif %}">
+                  {{ match_report.groom_mangal_dosha.reason }}
+                </td>
+              </tr>
+              <tr>
+                <th>Compatible?</th>
+                <td class="{% if not match_report.mangal_dosha_compatible %}dosha-row{% endif %}">
+                  {{ "Yes - both have matching Mangal Dosha status" if match_report.mangal_dosha_compatible
+                     else "Mismatch - one has Mangal Dosha and the other doesn't; traditionally worth discussing with an astrologer" }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="hint">
+            This is a classical rule-based calculation (no AI/model), following commonly-cited
+            Ashtakoot formulas. Some kootas (Vashya, Yoni, Tara) use documented simplifications
+            of finer classical variations - cross-check against a trusted source before relying
+            on this for an actual decision.
+          </p>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="tab-panel" id="panel-tools">
+        <div class="panel">
+          <h2 class="section-title">&#128295; Tools</h2>
+          <div class="held-chart-notice">
+            <p class="held-chart-title">No tools here yet</p>
+            <p class="hint pending-note">Reserved for future tools.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    {% endif %}
+
+  </div>

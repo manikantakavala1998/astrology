@@ -45,8 +45,13 @@ def test_match_requested_but_person_a_ambiguous_preserves_person_b() -> None:
     response = client.post("/", data=data)
     assert response.status_code == 200
     assert "Which place did you mean?" in response.text
-    # Person B's already-valid place text must still be present in the form.
-    assert 'value="Bengaluru, Karnataka"' in response.text
+    # Person B's already-valid place must still be present in the form. The
+    # city and the state live in separate fields now, so the text is split
+    # across the city input and the selected option of the state dropdown.
+    assert 'value="Bengaluru"' in response.text
+    # Assert the state is *selected*, not merely present: every state is an
+    # option, so checking for the option alone would pass regardless.
+    assert '<option value="Karnataka" selected>' in response.text
 
 
 def test_match_requested_but_person_b_ambiguous_shows_candidates_b() -> None:

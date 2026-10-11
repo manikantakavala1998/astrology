@@ -1,0 +1,49 @@
+<div class="planetary-aspects native-aspects">
+  <input type="radio" name="aspect-method" id="native-aspect-vedic" class="tab-radio" checked>
+  <input type="radio" name="aspect-method" id="native-aspect-western" class="tab-radio">
+  <div class="aspect-tabs">
+    <label for="native-aspect-vedic">Vedic Aspects</label>
+    <label for="native-aspect-western">Western Aspects</label>
+  </div>
+  <section class="panel aspect-panel native-vedic-aspects">
+    <h2>Classical Vedic Aspects · Sign to Sign</h2>
+    <p class="aspect-scroll-hint">Swipe the table to see all four columns.</p>
+    <div class="aspect-table-scroll" role="region" aria-label="Vedic aspect table" tabindex="0">
+    <table class="aspect-table vedic-aspect-table">
+      <thead><tr><th scope="col">Planet</th><th scope="col">Sign occupied</th><th scope="col">Aspected planets</th><th scope="col">Aspected signs</th></tr></thead>
+      <tbody>{% for row in aspect_tables.vedic %}
+        <tr data-planet="{{ row.planet }}">
+          <th scope="row"><span class="planet-color-{{ row.planet | lower }}">{{ row.planet }}</span>{% if row.retrograde %}<span class="aspect-retrograde"> (R)</span>{% endif %}</th>
+          <td class="aspect-occupied-sign" data-source-sign="{{ row.sign }}">{{ row.sign }}</td>
+          <td>{% if row.aspects %}<div class="aspect-entries">{% for link in row.aspects %}<span class="aspect-entry aspect-planet-entry" data-target="{{ link.target_planet }}" data-target-sign="{{ link.target_sign }}" data-aspect="{{ link.aspect_number }}"><span><span class="planet-color-{{ link.target_planet | lower }}">{{ link.target_planet }}</span> <span class="aspect-number">[{{ link.aspect_number }}]</span></span><small>{{ link.target_sign }}</small></span>{% endfor %}</div>{% else %}<span class="aspect-empty">—</span>{% endif %}</td>
+          <td>{% if row.aspected_signs %}<div class="aspect-entries">{% for sign in row.aspected_signs %}<span class="aspect-entry aspect-sign-entry" data-sign="{{ sign.sign }}" data-aspect="{{ sign.aspect_number }}">{{ sign.sign }} <span class="aspect-number">[{{ sign.aspect_number }}]</span></span>{% endfor %}</div>{% else %}<span class="aspect-empty">—</span>{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+    <p class="aspect-legend">[7] = 7th aspect · [4] = 4th aspect · [8] = 8th aspect<br>(R) = Retrograde</p>
+    <details class="aspect-rules"><summary>Rules &amp; calculations</summary>
+      <p>Count signs from the planet's natal sign as 1. Every classical planet aspects the 7th sign. Mars also aspects the 4th and 8th; Jupiter the 5th and 9th; Saturn the 3rd and 10th.</p>
+      <p>Aspected signs includes empty signs. This table follows zodiac signs independently of house-system selection. Rahu and Ketu can receive aspects; their outgoing Vedic aspects are not enabled.</p>
+    </details>
+  </section>
+  <section class="panel aspect-panel native-western-aspects">
+    <h2>Western Aspects · Planet to Planet</h2>
+    <p class="aspect-description">Conjunction 0° · Sextile 60° · Square 90° · Trine 120° · Opposition 180°<br>Orb tolerance: {{ '%g' | format(aspect_tables.western_default_orb) }}°</p>
+    <p class="aspect-scroll-hint">Swipe the table to see all four columns.</p>
+    <div class="aspect-table-scroll" role="region" aria-label="Western aspect table" tabindex="0">
+    <table class="aspect-table western-aspect-table">
+      <thead><tr><th scope="col">Planet</th><th scope="col">Sign occupied</th><th scope="col">Aspected planets</th><th scope="col">Aspected signs</th></tr></thead>
+      <tbody>{% for row in aspect_tables.western %}
+        {% set links = row.aspects | selectattr('orb', 'le', aspect_tables.western_default_orb) | list %}
+        <tr data-planet="{{ row.planet }}">
+          <th scope="row"><span class="planet-color-{{ row.planet | lower }}">{{ row.planet }}</span>{% if row.retrograde %}<span class="aspect-retrograde"> (R)</span>{% endif %}</th>
+          <td class="aspect-occupied-sign" data-source-sign="{{ row.sign }}">{{ row.sign }}</td>
+          <td>{% if links %}<div class="aspect-entries">{% for link in links %}<span class="aspect-entry aspect-western-entry" data-target="{{ link.target_planet }}" data-target-sign="{{ link.target_sign }}" data-aspect="{{ link.exact_angle }}" data-orb="{{ link.orb }}"><span><span class="planet-color-{{ link.target_planet | lower }}">{{ link.target_planet }}</span> <span class="aspect-number">{{ link.aspect_name }} [{{ link.exact_angle }}°]</span></span><small>{{ link.target_sign }}</small><small>Orb {{ '%.2f' | format(link.orb) }}°</small></span>{% endfor %}</div>{% else %}<span class="aspect-empty">—</span>{% endif %}</td>
+          <td>{% if links %}<div class="aspect-entries">{% for link in links %}<span class="aspect-entry aspect-western-entry aspect-sign-entry"><span>{{ link.target_sign }} <span class="aspect-number">[{{ link.exact_angle }}°]</span></span><small>{{ link.target_planet }}</small></span>{% endfor %}</div>{% else %}<span class="aspect-empty">—</span>{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+    </table>
+    </div>
+    <p class="aspect-legend">Numbers in brackets show the exact aspect angle. Orb shows how far the actual angle differs.<br>(R) = Retrograde</p>
+    <details class="aspect-rules"><summary>Rules &amp; calculations</summary><p>Separation = the shorter angle between the two planetary longitudes (0°–180°). Orb = |separation − exact aspect angle|. Only aspects within {{ '%g' | format(aspect_tables.western_default_orb) }}° appear. Aspected signs lists the signs occupied by the target planets.</p></details>
+  </section>
+</div>

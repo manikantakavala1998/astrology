@@ -160,6 +160,7 @@ def test_planet_labels_carry_dignity_suffix_and_color_class() -> None:
     )
     saturn_label = next(label for label in saturn_cell.planet_labels if label.code == "Sa")
     assert saturn_label.color_class == "planet-color-saturn"
+    assert saturn_label.natal_degree == saturn.degree_in_sign
     # Saturn is Own Sign in this fixture (Capricorn), not Exalted/Debilitated.
     assert saturn_label.dignity_suffix == ""
 

@@ -1,0 +1,25 @@
+{% if bala_report %}
+<details class="bala-native-details">
+  <summary>Separate bala names, calculations and input values</summary>
+  {% for view in bala_report.views %}
+  <details>
+    <summary>{{ view.name }} — {{ view.description }}</summary>
+    <p>{{ view.formula }} · {{ view.unit }}</p>
+    {% for note in view.notes %}<p class="hint">{{ note }}</p>{% endfor %}
+    {% for row in view.rows %}
+    <details>
+      <summary>{{ row.label }}: {{ "%.6f"|format(row.value) }} {{ view.unit }}</summary>
+      <table><thead><tr><th>Full name</th><th>Calculation</th><th>Result</th></tr></thead><tbody>
+        {% for detail in row.details %}<tr><th>{{ detail.name }}</th><td>{{ detail.calculation }}</td><td>{% if detail.value is not none %}{{ "%.6f"|format(detail.value) }} {{ detail.unit }}{% else %}Not calculated{% endif %}</td></tr>{% endfor %}
+      </tbody></table>
+      {% for input in row.inputs %}<p class="hint">{{ input.name }}: {{ input.value }}</p>{% endfor %}
+      {% for table in row.tables %}
+      <h3>{{ table.title }}</h3><table><thead><tr>{% for column in table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead><tbody>
+        {% for values in table.rows %}<tr>{% for value in values %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}
+      </tbody></table>{% endfor %}
+    </details>
+    {% endfor %}
+  </details>
+  {% endfor %}
+</details>
+{% endif %}

@@ -18,6 +18,33 @@ def test_search_by_alternate_name_madras() -> None:
     assert any(r.name == "Chennai" for r in results)
 
 
+def test_rajahmundry_alias_does_not_hide_the_renamed_city() -> None:
+    results = search_places("Rajahmundry, Andhra Pradesh")
+    assert results[0].name == "Rajamahendravaram"
+    assert results[0].latitude == pytest.approx(17.00517)
+    assert results[0].longitude == pytest.approx(81.77784)
+    # The smaller exact-name settlement stays available for disambiguation.
+    assert any(r.name == "Rajahmundry" for r in results)
+    assert all(r.state == "Andhra Pradesh" for r in results)
+
+
+def test_rjy_shorthand_resolves_the_city_with_ist() -> None:
+    results = search_places("rjy, Andhra Pradesh")
+    assert len(results) == 1
+    assert results[0].name == "Rajamahendravaram"
+    assert resolve_utc_offset(results[0].latitude, results[0].longitude,
+                              date(1998, 9, 4), time(0, 3), results[0].timezone) == 5.5
+
+
+def test_indian_alternate_names_respect_the_state_filter() -> None:
+    assert not search_places("rjy, Tamil Nadu")
+
+
+def test_nonpositive_result_limit_returns_no_places() -> None:
+    assert search_places("Chennai", limit=0) == []
+    assert search_places("Chennai", limit=-1) == []
+
+
 def test_search_with_country_filter() -> None:
     results = search_places("Chennai, India")
     assert all(r.country == "India" for r in results)
@@ -87,3 +114,82 @@ def test_resolve_utc_offset_accounts_for_dst() -> None:
     summer_offset = resolve_utc_offset(40.7128, -74.0060, date(2024, 7, 15), time(12, 0), "America/New_York")
     assert winter_offset == pytest.approx(-5.0)
     assert summer_offset == pytest.approx(-4.0)
+
+
+def test_misspelt_state_no_longer_discards_a_matching_city() -> None:
+    # "Andra" for "Andhra" used to return nothing at all, even though the
+    # city itself was spelt perfectly.
+    results = search_places("Vijayawada, Andra Pradesh")
+    assert results[0].name == "Vijayawada"
+    assert results[0].state == "Andhra Pradesh"
+
+
+def test_state_written_without_its_space_is_understood() -> None:
+    results = search_places("Chennai, Tamilnadu")
+    assert results[0].name == "Chennai"
+    assert results[0].state == "Tamil Nadu"
+
+
+def test_renamed_state_still_resolves() -> None:
+    results = search_places("Cuttack, Orissa")
+    assert results[0].state == "Odisha"
+
+
+def test_city_and_state_without_a_comma() -> None:
+    results = search_places("Vijayawada Andhra Pradesh")
+    assert results[0].name == "Vijayawada"
+    assert results[0].state == "Andhra Pradesh"
+
+
+def test_typo_correcting_to_an_alternate_name_beats_a_lookalike_village() -> None:
+    # "Banglore" is close to the alternate name "Bangalore", and only
+    # distantly close to a village called Bangora.
+    results = search_places("Banglore")
+    assert results[0].name == "Bengaluru"
+
+
+def test_exact_name_outranks_a_larger_place_matching_by_alternate_name() -> None:
+    results = search_places("Visakhapatnam")
+    assert results[0].name == "Visakhapatnam"
+
+
+def test_weak_prefix_match_does_not_suppress_the_spelling_correction() -> None:
+    # "Chennia" prefix-matches a village called Chenniahnapalya, which used
+    # to be returned as though it settled the query.
+    results = search_places("Chennia")
+    assert results[0].name == "Chennai"
+
+
+def test_confident_match_is_picked_for_an_unambiguous_typo() -> None:
+    from vedic_astro.geocode import pick_confident_match
+
+    matches = search_places("Chennia")
+    chosen = pick_confident_match("Chennia", matches)
+    assert chosen is not None and chosen.name == "Chennai"
+
+
+def test_genuinely_ambiguous_name_is_not_picked_automatically() -> None:
+    from vedic_astro.geocode import pick_confident_match
+
+    # Hyderabad exists in Telangana and in Sindh; only the user knows which.
+    matches = search_places("Hyderbad")
+    assert len(matches) > 1
+    assert pick_confident_match("Hyderbad", matches) is None
+
+    # Villages sharing one name across many states stay a real choice.
+    assert pick_confident_match("Haripur", search_places("Haripur")) is None
+
+
+def test_populated_namesake_outranks_a_larger_alternate_name_match() -> None:
+    # Delhi lists "New Delhi" among its alternate names and is far larger,
+    # but New Delhi is a real city in its own right.
+    results = search_places("New Delhi, Delhi")
+    assert results[0].name == "New Delhi"
+
+
+def test_state_repeated_in_the_city_box_still_resolves() -> None:
+    # The form has a state dropdown and a city box; people still type the
+    # whole "City State" into the city box, which duplicates the state.
+    results = search_places("Vijayawada Andhra Pradesh, Andhra Pradesh")
+    assert results[0].name == "Vijayawada"
+    assert results[0].state == "Andhra Pradesh"

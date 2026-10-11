@@ -1,0 +1,74 @@
+  <div class="page">
+
+    {% if error %}
+    <div class="panel error">{{ error }}</div>
+    {% else %}
+    <div class="panel">
+      <h2 class="section-title">{{ mahadasha_lord.value }} Mahadasha - full breakdown</h2>
+      <p class="hint">
+        Click an Antardasha row to reveal its Pratyantardasha breakdown, a Pratyantardasha row for its
+        Sookshma breakdown, and a Sookshma row for its Prana breakdown. Computed just for this one
+        Mahadasha branch (6,561 Prana periods max), not the whole chart - see the Dasha tab for the
+        list of all Mahadashas.
+      </p>
+
+      {% for antardasha_period in antardasha %}
+      <details class="dasha-detail-level">
+        <summary>
+          <strong>{{ antardasha_period.planet.value }}</strong>
+          {{ antardasha_period.start.strftime("%d-%m-%Y") }} &rarr; {{ antardasha_period.end.strftime("%d-%m-%Y") }}
+        </summary>
+        <table>
+          <thead><tr><th>Pratyantardasha</th><th>Start</th><th>End</th></tr></thead>
+          <tbody>
+            {% for pratyantardasha in antardasha_period.sub_periods %}
+            <tr>
+              <td colspan="3" style="padding:0;">
+                <details class="dasha-detail-level">
+                  <summary>
+                    {{ pratyantardasha.planet.value }}
+                    {{ pratyantardasha.start.strftime("%d-%m-%Y") }} &rarr; {{ pratyantardasha.end.strftime("%d-%m-%Y") }}
+                  </summary>
+                  <table>
+                    <thead><tr><th>Sookshma</th><th>Start</th><th>End</th></tr></thead>
+                    <tbody>
+                      {% for sookshma in pratyantardasha.sub_periods %}
+                      <tr>
+                        <td colspan="3" style="padding:0;">
+                          <details class="dasha-detail-level">
+                            <summary>
+                              {{ sookshma.planet.value }}
+                              {{ sookshma.start.strftime("%d-%m-%Y") }} &rarr; {{ sookshma.end.strftime("%d-%m-%Y") }}
+                            </summary>
+                            <table>
+                              <thead><tr><th>Prana</th><th>Start</th><th>End</th></tr></thead>
+                              <tbody>
+                                {% for prana in sookshma.sub_periods %}
+                                <tr>
+                                  <td>{{ prana.planet.value }}</td>
+                                  <td>{{ prana.start.strftime("%d-%m-%Y") }}</td>
+                                  <td>{{ prana.end.strftime("%d-%m-%Y") }}</td>
+                                </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </details>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </details>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <p><a href="/">&larr; Back to chart</a></p>
+
+  </div>

@@ -1,16 +1,12 @@
-"""Divisional (varga) charts beyond D1/D2/D9 (see varga.py for those).
+"""Sign placements for the app's 23 divisional charts.
 
-Only implements the charts whose classical starting-sign rule is
-cross-source-consistent: D3, D7, D10, D12, D30 (plus the existing D1/D2/D9,
-referenced here for a complete registry). The remaining 15 of the classical
-"23 varga" list have real, material disagreement across sources on their
-exact rule - or, for D81/D108/D144, aren't part of the classical Parashari
-system at all (they're modern software-era extensions with no consistent
-definition). Those are listed in VARGA_REGISTRY with `sign_fn=None` and a
-`held_reason`, so the full 23-chart list a user expects is visibly present
-while being honest about what's actually computed versus pending a
-confirmed source - the same "flag rather than guess" pattern already used
-elsewhere in this app (see matching.py's Vashya/Yoni notes).
+The sixteen Parashari divisions follow BPHS chapter 6. Supplementary D5,
+D6, D8 and D11 use the traditional conventions documented by PyJHora;
+D81 is cyclic D9 of D9, D108 is D12 of D9, and D144 is D12 of D12.
+D24 counts forward from Leo/Cancer; D60 counts forward from Aries,
+following the literal degree-only rule in BPHS 6.33-41. These choices
+are explicit because other schools/software offer alternate methods.
+Sources and the complete rule table are in docs/divisional-charts.md.
 """
 
 from __future__ import annotations
@@ -23,17 +19,6 @@ from vedic_astro.rashi_bhava import degree_in_sign, sign_for_longitude
 from vedic_astro.varga import hora_sign, navamsa_sign
 
 _EPSILON = 1e-9
-
-_HELD_DISPUTED = (
-    "Classical rule for this chart varies across sources; held until a "
-    "confirmed source is available, rather than shipping a guess."
-)
-_HELD_NOT_CLASSICAL = (
-    "Not part of the classical Parashari divisional-chart system - a "
-    "modern software-era extension with no consistent definition across "
-    "sources. Held until a confirmed source is available."
-)
-
 
 def _signs_forward(start: Sign, offset: int) -> Sign:
     start_index = SIGNS_IN_ORDER.index(start)
@@ -56,6 +41,37 @@ def drekkana_sign(longitude: float) -> Sign:
     birth_sign = sign_for_longitude(longitude)
     part = _part_index(longitude, 3)
     return _signs_forward(birth_sign, 4 * part)
+
+
+def chaturthamsa_sign(longitude: float) -> Sign:
+    """D4: successive quarters occupy the four kendras of the birth sign."""
+    return _signs_forward(sign_for_longitude(longitude), 3 * _part_index(longitude, 4))
+
+
+def panchamsa_sign(longitude: float) -> Sign:
+    """D5: five equal parts in Mars/Saturn/Jupiter/Mercury/Venus order
+    for odd signs, Venus/Mercury/Jupiter/Saturn/Mars for even signs."""
+    odd = (Sign.ARIES, Sign.AQUARIUS, Sign.SAGITTARIUS, Sign.GEMINI, Sign.LIBRA)
+    even = (Sign.TAURUS, Sign.VIRGO, Sign.PISCES, Sign.CAPRICORN, Sign.SCORPIO)
+    signs = odd if _is_odd_sign(sign_for_longitude(longitude)) else even
+    return signs[_part_index(longitude, 5)]
+
+
+def shashthamsa_sign(longitude: float) -> Sign:
+    """D6: start at Aries for odd signs and Libra for even signs."""
+    anchor = Sign.ARIES if _is_odd_sign(sign_for_longitude(longitude)) else Sign.LIBRA
+    return _signs_forward(anchor, _part_index(longitude, 6))
+
+
+def _modal_sign(longitude: float, divisions: int, anchors: tuple[Sign, Sign, Sign]) -> Sign:
+    # Aries/Taurus/Gemini are movable/fixed/dual; the pattern repeats.
+    mode = SIGNS_IN_ORDER.index(sign_for_longitude(longitude)) % 3
+    return _signs_forward(anchors[mode], _part_index(longitude, divisions))
+
+
+def ashtamsa_sign(longitude: float) -> Sign:
+    """D8: movable/fixed/dual signs start at Aries/Sagittarius/Leo."""
+    return _modal_sign(longitude, 8, (Sign.ARIES, Sign.SAGITTARIUS, Sign.LEO))
 
 
 def saptamsa_sign(longitude: float) -> Sign:
@@ -84,6 +100,74 @@ def dwadasamsa_sign(longitude: float) -> Sign:
     birth_sign = sign_for_longitude(longitude)
     part = _part_index(longitude, 12)
     return _signs_forward(birth_sign, part)
+
+
+def rudramsa_sign(longitude: float) -> Sign:
+    """D11: seeds run Aries, Pisces, Aquarius, ...; parts count forward.
+    This is the Rudramsa convention, rather than Raman's reversed variant."""
+    birth_index = SIGNS_IN_ORDER.index(sign_for_longitude(longitude))
+    return SIGNS_IN_ORDER[(-birth_index + _part_index(longitude, 11)) % 12]
+
+
+def shodashamsa_sign(longitude: float) -> Sign:
+    """D16: movable/fixed/dual signs start at Aries/Leo/Sagittarius."""
+    return _modal_sign(longitude, 16, (Sign.ARIES, Sign.LEO, Sign.SAGITTARIUS))
+
+
+def vimsamsa_sign(longitude: float) -> Sign:
+    """D20: movable/fixed/dual signs start at Aries/Sagittarius/Leo."""
+    return _modal_sign(longitude, 20, (Sign.ARIES, Sign.SAGITTARIUS, Sign.LEO))
+
+
+def chaturvimsamsa_sign(longitude: float) -> Sign:
+    """D24: count forward from Leo in odd signs and Cancer in even signs."""
+    anchor = Sign.LEO if _is_odd_sign(sign_for_longitude(longitude)) else Sign.CANCER
+    return _signs_forward(anchor, _part_index(longitude, 24))
+
+
+def nakshatramsa_sign(longitude: float) -> Sign:
+    """D27: fire/earth/air/water start at Aries/Cancer/Libra/Capricorn."""
+    element = SIGNS_IN_ORDER.index(sign_for_longitude(longitude)) % 4
+    return _signs_forward(SIGNS_IN_ORDER[element * 3], _part_index(longitude, 27))
+
+
+def khavedamsa_sign(longitude: float) -> Sign:
+    """D40: start at Aries for odd signs and Libra for even signs."""
+    anchor = Sign.ARIES if _is_odd_sign(sign_for_longitude(longitude)) else Sign.LIBRA
+    return _signs_forward(anchor, _part_index(longitude, 40))
+
+
+def akshavedamsa_sign(longitude: float) -> Sign:
+    """D45: movable/fixed/dual signs start at Aries/Leo/Sagittarius."""
+    return _modal_sign(longitude, 45, (Sign.ARIES, Sign.LEO, Sign.SAGITTARIUS))
+
+
+def shashtiamsa_sign(longitude: float) -> Sign:
+    """D60: twice the degree within the birth sign, counted from Aries.
+    Reversed deity names in even signs do not reverse sign placement."""
+    return _signs_forward(Sign.ARIES, _part_index(longitude, 60))
+
+
+def navanavamsa_sign(longitude: float) -> Sign:
+    """D81: Navamsa of Navamsa, equivalent to the cyclic 81-fold map."""
+    birth_index = SIGNS_IN_ORDER.index(sign_for_longitude(longitude))
+    return SIGNS_IN_ORDER[(birth_index * 81 + _part_index(longitude, 81)) % 12]
+
+
+def ashtottaramsa_sign(longitude: float) -> Sign:
+    """D108: apply D9 first, then D12 to its sign and fractional degree.
+    Integer subdivision indices avoid rounding the intermediate longitude."""
+    navamsa_part, dwadasamsa_part = divmod(_part_index(longitude, 108), 12)
+    birth_index = SIGNS_IN_ORDER.index(sign_for_longitude(longitude))
+    navamsa_index = (birth_index * 9 + navamsa_part) % 12
+    return SIGNS_IN_ORDER[(navamsa_index + dwadasamsa_part) % 12]
+
+
+def dwadasadwadasamsa_sign(longitude: float) -> Sign:
+    """D144: D12 of D12, retaining the first division's fractional degree."""
+    first_part, second_part = divmod(_part_index(longitude, 144), 12)
+    birth_index = SIGNS_IN_ORDER.index(sign_for_longitude(longitude))
+    return SIGNS_IN_ORDER[(birth_index + first_part + second_part) % 12]
 
 
 # D30 Trimsamsa (evils, miseries & sickness) is the one chart here that is
@@ -120,30 +204,40 @@ class VargaSpec:
     divisions: int
     sign_fn: Callable[[float], Sign] | None
     held_reason: str | None = None
+    method: str = "Parashari"
 
 
 VARGA_REGISTRY: list[VargaSpec] = [
     VargaSpec("D1", "Rasi Chart (Main Birth Chart)", 1, sign_for_longitude),
     VargaSpec("D2", "Hora (Wealth)", 2, hora_sign),
     VargaSpec("D3", "Drekkana (Siblings & Initiative)", 3, drekkana_sign),
-    VargaSpec("D4", "Chaturthamsa / Turyamsa (Fixed Assets & Luck)", 4, None, _HELD_DISPUTED),
-    VargaSpec("D5", "Panchamsa (Fame & Spiritual Inclination)", 5, None, _HELD_DISPUTED),
-    VargaSpec("D6", "Shashthamsa (Debts, Diseases & Enemies)", 6, None, _HELD_DISPUTED),
+    VargaSpec("D4", "Chaturthamsa / Turyamsa (Fixed Assets & Luck)", 4, chaturthamsa_sign),
+    VargaSpec("D5", "Panchamsa (Fame & Spiritual Inclination)", 5, panchamsa_sign,
+              method="Traditional Panchamsa · five equal parts"),
+    VargaSpec("D6", "Shashthamsa (Debts, Diseases & Enemies)", 6, shashthamsa_sign,
+              method="Traditional Shashthamsa · Aries / Libra starts"),
     VargaSpec("D7", "Saptamsa (Children & Legacy)", 7, saptamsa_sign),
-    VargaSpec("D8", "Ashtamsa (Longevity & Sudden Transformations)", 8, None, _HELD_DISPUTED),
+    VargaSpec("D8", "Ashtamsa (Longevity & Sudden Transformations)", 8, ashtamsa_sign,
+              method="Traditional Ashtamsa · Aries / Sagittarius / Leo starts"),
     VargaSpec("D9", "Navamsa (Marriage, Dharma & Inner Strength)", 9, navamsa_sign),
     VargaSpec("D10", "Dasamsa / Mahatamsa (Career & Profession)", 10, dasamsa_sign),
-    VargaSpec("D11", "Rudramsa / Ekadasamsa (Gains & Victory)", 11, None, _HELD_DISPUTED),
+    VargaSpec("D11", "Rudramsa / Ekadasamsa (Gains & Victory)", 11, rudramsa_sign,
+              method="Rudramsa · reverse sign seeds, forward division count"),
     VargaSpec("D12", "Dvadasamsa (Parents & Ancestry)", 12, dwadasamsa_sign),
-    VargaSpec("D16", "Shodashamsa / Kalamsa (Vehicles & Material Comforts)", 16, None, _HELD_DISPUTED),
-    VargaSpec("D20", "Vimsamsa (Spirituality & Religious Devotion)", 20, None, _HELD_DISPUTED),
-    VargaSpec("D24", "Chaturvimsamsa / Siddhamsa (Education & Learning)", 24, None, _HELD_DISPUTED),
-    VargaSpec("D27", "Nakshatramsa / Bhamsa (Inherent Weaknesses & Strengths)", 27, None, _HELD_DISPUTED),
+    VargaSpec("D16", "Shodashamsa / Kalamsa (Vehicles & Material Comforts)", 16, shodashamsa_sign),
+    VargaSpec("D20", "Vimsamsa (Spirituality & Religious Devotion)", 20, vimsamsa_sign),
+    VargaSpec("D24", "Chaturvimsamsa / Siddhamsa (Education & Learning)", 24, chaturvimsamsa_sign,
+              method="Parashari · forward count from Leo / Cancer"),
+    VargaSpec("D27", "Nakshatramsa / Bhamsa (Inherent Weaknesses & Strengths)", 27, nakshatramsa_sign),
     VargaSpec("D30", "Trimsamsa (Evils, Miseries & Sickness)", 30, trimsamsa_sign),
-    VargaSpec("D40", "Khavedamsa / Swavedamsa (Maternal Lineage & Auspiciousness)", 40, None, _HELD_DISPUTED),
-    VargaSpec("D45", "Akshavedamsa (Paternal Lineage & Purity of Character)", 45, None, _HELD_DISPUTED),
-    VargaSpec("D60", "Shastiamsamsa (Past Karma & Fine Character Blueprint)", 60, None, _HELD_DISPUTED),
-    VargaSpec("D81", "Navanavamsa (Higher Micro-level Research)", 81, None, _HELD_NOT_CLASSICAL),
-    VargaSpec("D108", "Ashtottaramsa (Advanced Astrological Research)", 108, None, _HELD_NOT_CLASSICAL),
-    VargaSpec("D144", "Dwadasadwadasamsa (Deepest Ancestral & Subtle Karma)", 144, None, _HELD_NOT_CLASSICAL),
+    VargaSpec("D40", "Khavedamsa / Swavedamsa (Maternal Lineage & Auspiciousness)", 40, khavedamsa_sign),
+    VargaSpec("D45", "Akshavedamsa (Paternal Lineage & Purity of Character)", 45, akshavedamsa_sign),
+    VargaSpec("D60", "Shashtiamsa (Past Karma & Fine Character Blueprint)", 60, shashtiamsa_sign,
+              method="BPHS · forward count from Aries using degrees within the natal sign"),
+    VargaSpec("D81", "Navanavamsa (Higher Micro-level Research)", 81, navanavamsa_sign,
+              method="Composite · Navamsa of Navamsa (D9 → D9, cyclic)"),
+    VargaSpec("D108", "Ashtottaramsa (Advanced Astrological Research)", 108, ashtottaramsa_sign,
+              method="Composite · Dvadasamsa of Navamsa (D9 → D12)"),
+    VargaSpec("D144", "Dwadasa Dwadasamsa (Deepest Ancestral & Subtle Karma)", 144, dwadasadwadasamsa_sign,
+              method="Composite · Dvadasamsa of Dvadasamsa (D12 → D12)"),
 ]

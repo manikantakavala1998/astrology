@@ -10,8 +10,9 @@ summarized from memory, and not guessed for the ones left out below):
 - BSP-5 (Saptarishis Astrology): when Jupiter and Saturn are conjunct (same
   house), whichever house holds Aries is "spoilt/activated."
 - BSP-6, 8, 9, 10, 11, 13 (Venkat Ramana / Saptarishis Astrology): six
-  age-timed rules (Mars/Rahu/Ketu/Jupiter/Jupiter/Saturn) - see
-  compute_bsp_rules() below for the "special status" precondition system.
+  age-timed rules (Mars/Rahu/Ketu/Jupiter/Jupiter/Saturn). Their original
+  activations and the separate special-status research variant are explicit
+  options in compute_bsp_rules(). The application defaults to original rules.
 - BSP-14 (Saptarishis Astrology, "Bhava Sutra Series"): Past Life Bhava
   (Bhrighu Bhava) - permanent - count forward from the Ascendant by the
   Ascendant sign's own natural zodiac number (Aries=1, ... Pisces=12);
@@ -33,8 +34,8 @@ refinement layer that further narrows BSP-6/10 to one specific planet or
 signification - a real, well-specified technique, just not yet built here);
 BSP-22 (a separate paid article, not part of the free series).
 
-Each of the 6 age-timed rules only applies to a chart at all if its planet
-has "special status" - the source lists several alternative preconditions
+The separate Abhishekha special-status research interpretation adds a gate
+to the original age rules. It lists several alternative preconditions
 per rule (being in the Ascendant, being the Ascendant lord for specific
 rising signs, exalted/moolatrikona/own-sign/retrograde/debilitated, in a
 kendra/trikona house, "influencing" the Ascendant or its lord). Two
@@ -49,13 +50,16 @@ INTERPRETATION NOTES on ambiguous wording in the source:
    co-lordship convention (Rahu with Aquarius, Ketu with Scorpio) used in
    some Jyotish traditions, not a typo for the nodes' own signs.
 
-If special status holds, the rule flags a single fixed age (not a repeating
-cycle, unlike bcp.py) and a house offset from that planet's own natal house
-- both taken directly from the source's own rule table.
+The original rule flags a single fixed running year (not a repeating cycle,
+unlike bcp.py) and a house offset from that planet's natal house. Only the
+optional research variant requires special status. The structured explorer
+also distinguishes BSP-10's occupied-house activation and BSP-11's occasional
+occupied-house result and seventh-house influence from their primary targets.
 """
 
 from __future__ import annotations
 
+from vedic_astro.aspects import aspected_houses
 from vedic_astro.dignity import planet_dignity
 from vedic_astro.models import (
     BspAriesSpoilt, BspHouseNote, BspRuleResult, BspVenusReveals,
@@ -106,12 +110,11 @@ def _shared_special_status(
     if planet_pos.house == 1:
         reasons.append(f"{planet.value} is in the Ascendant")
 
-    if any(a.source_planet == planet and a.target_house == 1 for a in aspects):
+    targets = aspected_houses(planet, planet_pos.house)
+    if 1 in targets:
         reasons.append(f"{planet.value} aspects (influences) the Ascendant")
 
-    if asc_lord_pos is not None and any(
-        a.source_planet == planet and a.target_house == asc_lord_pos.house for a in aspects
-    ):
+    if asc_lord_pos is not None and asc_lord_pos.house in targets:
         reasons.append(f"{planet.value} aspects (influences) the Ascendant lord ({asc_lord.value})")
 
     if _has_dignity_status(planet, planet_pos.sign, planet_pos.degree_in_sign, planet_pos.retrograde):
@@ -137,6 +140,7 @@ def _rule(
     extra_check: bool = True,
     check_luminary_conjunction: bool = False,
     additional_own_houses: tuple[int, ...] = (),
+    require_special_status: bool = True,
 ) -> BspRuleResult:
     planet_pos = next(p for p in planets if p.planet == planet)
     reasons = _shared_special_status(planet, planet_pos, ascendant_sign, planets, aspects)
@@ -153,10 +157,14 @@ def _rule(
         reasons.append(f"{planet.value} is conjunct a luminary (Sun/Moon)")
 
     special_status = len(reasons) > 0
-    affected_house = _house_offset(planet_pos.house, house_offset) if special_status else None
+    applies = special_status or not require_special_status
+    affected_house = _house_offset(planet_pos.house, house_offset) if applies else None
     affected_sign = SIGNS_IN_ORDER[(SIGNS_IN_ORDER.index(ascendant_sign) + affected_house - 1) % 12] if affected_house else None
 
     summary = (
+        f"BSP Rule #{rule_number}: in running year {age}, count {house_offset} houses from {planet.value} "
+        f"to house {affected_house} from Lagna."
+        if not require_special_status else
         f"BSP Rule #{rule_number}: {planet.value} has special status in this chart - "
         f"watch age {age} (house {affected_house} from Lagna)."
         if special_status
@@ -178,8 +186,12 @@ def _rule(
 
 
 def compute_bsp_rules(
-    ascendant_sign: Sign, planets: list[PlanetPosition], aspects: list[PlanetAspect]
+    ascendant_sign: Sign, planets: list[PlanetPosition], aspects: list[PlanetAspect],
+    *, require_special_status: bool = True,
 ) -> list[BspRuleResult]:
+    """Original article rules when require_special_status=False; the legacy
+    special-status research interpretation when True. Keep them explicit.
+    """
     no_planets_in_lagna = not any(p.house == 1 for p in planets)
     rahu_ketu_only_in_lagna = all(
         p.planet in (Planet.RAHU, Planet.KETU) for p in planets if p.house == 1
@@ -191,6 +203,7 @@ def compute_bsp_rules(
             trigger_signs=(Sign.ARIES, Sign.SCORPIO),
             trigger_description="Martian Ascendant (Aries/Scorpio rising) with no planets in the Ascendant",
             extra_check=no_planets_in_lagna,
+            require_special_status=require_special_status,
         ),
         _rule(
             8, Planet.RAHU, ascendant_sign, planets, aspects, age=38, house_offset=6, aspect_used=None,
@@ -198,6 +211,7 @@ def compute_bsp_rules(
             trigger_description="Aquarian/Scorpio Ascendant with no planets other than the nodes in the Ascendant",
             extra_check=rahu_ketu_only_in_lagna,
             check_luminary_conjunction=True,
+            require_special_status=require_special_status,
         ),
         _rule(
             9, Planet.KETU, ascendant_sign, planets, aspects, age=24, house_offset=12, aspect_used=None,
@@ -206,21 +220,25 @@ def compute_bsp_rules(
             extra_check=rahu_ketu_only_in_lagna,
             check_luminary_conjunction=True,
             additional_own_houses=(2, 8),
+            require_special_status=require_special_status,
         ),
         _rule(
             10, Planet.JUPITER, ascendant_sign, planets, aspects, age=40, house_offset=9, aspect_used=9,
             trigger_signs=(Sign.SAGITTARIUS, Sign.PISCES),
             trigger_description="Jupiter is the Ascendant lord (Sagittarius/Pisces rising)",
+            require_special_status=require_special_status,
         ),
         _rule(
             11, Planet.JUPITER, ascendant_sign, planets, aspects, age=32, house_offset=5, aspect_used=5,
             trigger_signs=(Sign.SAGITTARIUS, Sign.PISCES),
             trigger_description="Jupiter is the Ascendant lord (Sagittarius/Pisces rising)",
+            require_special_status=require_special_status,
         ),
         _rule(
             13, Planet.SATURN, ascendant_sign, planets, aspects, age=20, house_offset=3, aspect_used=3,
             trigger_signs=(Sign.CAPRICORN, Sign.AQUARIUS),
             trigger_description="Saturn is the Ascendant lord (Capricorn/Aquarius rising)",
+            require_special_status=require_special_status,
         ),
     ]
 
@@ -280,7 +298,7 @@ def compute_bsp_aries_spoilt(ascendant_sign: Sign, planets: list[PlanetPosition]
     whichever house holds Aries. None if the condition doesn't hold."""
     jupiter = next(p for p in planets if p.planet == Planet.JUPITER)
     saturn = next(p for p in planets if p.planet == Planet.SATURN)
-    if jupiter.house != saturn.house:
+    if jupiter.sign != saturn.sign:
         return None
 
     aries_house = _house_from_lagna_for_sign(ascendant_sign, Sign.ARIES)

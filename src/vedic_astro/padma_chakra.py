@@ -18,13 +18,10 @@ twice: once for the natal (D1) Ascendant, and once for the D12 Ascendant
 worked example does both and combines them.
 
 YEAR CALCULATION: the classical "1 house = 1 year from the Ascendant" rule
-is the same as bcp.py's base mechanic. What's novel here is the exact START
-DATE of each year: this method treats a "year" as exactly 360 days (30 days
-per house x 12 houses), not the real ~365.24-day solar year, so real
-calendar dates drift about 5 days 5 hours later than this system's nominal
-year boundary, for every year of the native's life. This module reproduces
-Bhavasar's own worked-example arithmetic exactly (verified against the
-article's raw text): for K completed years, round K x 5 hours to the
+is the same as bcp.py's base mechanic. The start dates use Bhavasar's
+approximate calendar drift convention for a nominal 360-day year. This is
+not equivalent to adding an exact 360-day timedelta. For K completed years,
+round K x 5 hours to the
 nearest whole day, add it to K x 5 days, decompose that total into 30-day
 "months" + remainder days, then subtract that many calendar months and
 days from the K-year calendar anniversary - reproduced to within 1 day of
@@ -42,6 +39,10 @@ YEAR-LORD / D12 SUPERIMPOSITION (the article's own 3-step procedure):
    year-lord's influence actually plays out.
 """
 
+# The supplied Padma slides confirm the year-lord/D12-sign/D1 overlay:
+# https://www.scribd.com/document/549426388/PadmaChakra-calculation-and-result
+# They do not specify date boundaries; YEAR CALCULATION above remains the
+# separately documented Bhavasar calendar approximation.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -101,8 +102,9 @@ def _subtract_calendar_months(dt: datetime, months: int) -> datetime:
 
 def _year_boundary(birth_datetime: datetime, completed_years: int) -> datetime:
     """The real calendar date at which `completed_years` have elapsed under
-    this method's 360-day nominal year - see YEAR CALCULATION in this
-    module's docstring for the exact (source-matching) rounding steps."""
+    this method's approximate calendar convention - see YEAR CALCULATION.
+    Nearest-whole-day rounding uses Python's ties-to-even convention.
+    """
     day_component = 5 * completed_years
     hour_component_as_days = round(5 * completed_years / 24)
     total_drift_days = day_component + hour_component_as_days
@@ -125,7 +127,8 @@ def compute_padma_chakra_years(
     badhaka_d1 = compute_badhaka(ascendant_sign)
     d12_ascendant_sign = dwadasamsa_sign(ascendant_longitude)
     badhaka_d12 = compute_badhaka(d12_ascendant_sign)
-    badhaka_houses = {badhaka_d1.badhaka_house_from_lagna, badhaka_d12.badhaka_house_from_lagna}
+    # Both charts must be superimposed by SIGN before comparing D1 houses.
+    badhaka_signs = {badhaka_d1.badhaka_sign, badhaka_d12.badhaka_sign}
 
     years: list[PadmaChakraYear] = []
     for age in range(1, max_age + 1):
@@ -153,7 +156,7 @@ def compute_padma_chakra_years(
                 year_lord=year_lord,
                 year_lord_dwadasamsa_sign=d12_sign,
                 superimposed_house_from_lagna=superimposed_house,
-                is_badhaka=superimposed_house in badhaka_houses,
+                is_badhaka=d12_sign in badhaka_signs,
             )
         )
     return years

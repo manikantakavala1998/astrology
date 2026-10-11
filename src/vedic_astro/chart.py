@@ -105,6 +105,7 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
         sun_longitude=raw_positions[Planet.SUN].longitude,
         moon_longitude=moon_longitude,
         local_date=birth_data.birth_date,
+        birth_data=birth_data,
     )
     dasha = compute_vimshottari_dasha(
         moon_longitude=moon_longitude, birth_datetime=birth_data.local_datetime
@@ -141,14 +142,14 @@ def build_kundali_chart(birth_data: BirthData) -> KundaliChart:
         bhava_bala=bhava_bala,
         bhrigu_chakra=compute_bhrigu_chakra(ascendant.sign, planets),
         bcp_longevity=compute_bcp_longevity(ascendant.sign, planets),
-        bsp_rules=compute_bsp_rules(ascendant.sign, planets, aspects),
+        bsp_rules=compute_bsp_rules(ascendant.sign, planets, aspects, require_special_status=False),
         bsp_house_notes=compute_bsp_house_notes(ascendant.sign, planets),
         bsp_aries_spoilt=compute_bsp_aries_spoilt(ascendant.sign, planets),
         bsp_venus_reveals=compute_bsp_venus_reveals(ascendant.sign, planets),
         badhaka_d1=compute_badhaka(ascendant.sign),
         badhaka_d12=compute_badhaka(dwadasamsa_sign(ascendant.longitude)),
+        bnn=compute_bhrigu_nandi_nadi(planets),
         padma_chakra=compute_padma_chakra_years(
             ascendant.sign, ascendant.longitude, planets, birth_data.local_datetime
         ),
-        bnn=compute_bhrigu_nandi_nadi(planets),
     )

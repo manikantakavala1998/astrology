@@ -5,14 +5,17 @@ import pytest
 from vedic_astro.ashtakavarga import (
     ASHTAKAVARGA_PLANETS,
     BAV_FIXED_TOTALS,
+    LAGNA, LAGNA_BAV_FIXED_TOTAL,
     _BAV_CONTRIBUTION_TABLE,
     bhava_ashtakavarga,
     bhinnashtakavarga,
     compute_ashtakavarga,
+    lagna_ashtakavarga,
+    lagna_ashtakavarga_contributions,
     samudaya_ashtakavarga,
 )
 from vedic_astro.chart import build_kundali_chart
-from vedic_astro.models import BirthData, Planet, Sign
+from vedic_astro.models import SIGNS_IN_ORDER, BirthData, Planet, Sign
 
 
 def _sample_birth_data() -> BirthData:
@@ -76,6 +79,46 @@ def test_compute_ashtakavarga_sav_totals_337() -> None:
     chart = build_kundali_chart(_sample_birth_data())
     result = compute_ashtakavarga(chart.planets, chart.ascendant.sign, chart.bhava_chalit_cusps)
     assert sum(result.sav.values()) == 337
+
+
+@pytest.mark.parametrize("reference_sign", SIGNS_IN_ORDER)
+def test_lagna_bav_matches_primary_text_at_every_zodiac_rotation(reference_sign: Sign) -> None:
+    chart = build_kundali_chart(_sample_birth_data())
+    planets = [p.model_copy(update={"sign": reference_sign}) for p in chart.planets]
+    # BPHS 66.65-68 gives contributors by relative house. With all eight
+    # reference points in the same sign, these independently transcribed
+    # column counts are the expected chart, including wraparound at Pisces.
+    expected_by_relative_house = [5, 3, 6, 5, 2, 7, 1, 2, 2, 7, 7, 2]
+    reference_index = SIGNS_IN_ORDER.index(reference_sign)
+    result = lagna_ashtakavarga(planets, reference_sign)
+    assert [result[SIGNS_IN_ORDER[(reference_index + i) % 12]] for i in range(12)] == expected_by_relative_house
+    assert sum(result.values()) == LAGNA_BAV_FIXED_TOTAL == 49
+
+
+def test_lagna_bav_uses_birth_inputs_and_keeps_planetary_sav_separate() -> None:
+    chart = build_kundali_chart(BirthData(
+        birth_date=date(1998, 9, 4), birth_time=time(0, 3),
+        latitude=17.00517, longitude=81.77784, utc_offset_hours=5.5,
+    ))
+    result = chart.ashtakavarga
+    assert result is not None
+    assert chart.ascendant.sign == Sign.TAURUS
+    assert [result.lagna_bav[sign] for sign in SIGNS_IN_ORDER] == [5, 3, 4, 6, 3, 4, 5, 4, 5, 3, 3, 4]
+    contributions = lagna_ashtakavarga_contributions(chart.planets, chart.ascendant.sign)
+    assert {str(key.value) if isinstance(key, Planet) else key: sum(row.values())
+            for key, row in contributions.items()} == {
+        "Sun": 6, "Moon": 5, "Mars": 5, "Mercury": 7,
+        "Jupiter": 9, "Venus": 7, "Saturn": 6, "Lagna": 4,
+    }
+    assert all(point in (0, 1) for row in contributions.values() for point in row.values())
+    assert all(result.lagna_bav[sign] == sum(row[sign] for row in contributions.values()) for sign in SIGNS_IN_ORDER)
+    assert sum(result.lagna_bav.values()) == 49
+    assert sum(result.sav.values()) == sum(result.bhava_ashtakavarga.values()) == 337
+    assert len(result.bav_by_planet) == 7
+    assert all(result.sav[sign] == sum(row[sign] for row in result.bav_by_planet.values()) for sign in SIGNS_IN_ORDER)
+    changed = lagna_ashtakavarga_contributions(chart.planets, Sign.GEMINI)
+    assert changed[LAGNA] != contributions[LAGNA]
+    assert all(changed[planet] == contributions[planet] for planet in ASHTAKAVARGA_PLANETS)
 
 
 def test_bhava_ashtakavarga_preserves_the_337_total() -> None:

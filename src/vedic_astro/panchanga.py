@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from vedic_astro.models import PanchangaElement, PanchangaResult
+from vedic_astro.models import BirthData, PanchangaElement, PanchangaResult
+from vedic_astro.hora import compute_birth_hora
 from vedic_astro.nakshatra import nakshatra_for_longitude
 
 TITHI_SPAN = 12.0
@@ -80,7 +81,8 @@ def _vara(local_date: date) -> str:
 
 
 def compute_panchanga(
-    sun_longitude: float, moon_longitude: float, local_date: date
+    sun_longitude: float, moon_longitude: float, local_date: date,
+    birth_data: BirthData | None = None,
 ) -> PanchangaResult:
     tithi, paksha = _tithi(sun_longitude, moon_longitude)
     moon_nakshatra = nakshatra_for_longitude(moon_longitude)
@@ -91,4 +93,5 @@ def compute_panchanga(
         nakshatra=PanchangaElement(name=moon_nakshatra.name, index=moon_nakshatra.index),
         yoga=_yoga(sun_longitude, moon_longitude),
         karana=_karana(sun_longitude, moon_longitude),
+        hora=compute_birth_hora(birth_data) if birth_data is not None else None,
     )

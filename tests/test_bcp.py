@@ -1,3 +1,5 @@
+import pytest
+
 from vedic_astro.bcp import MAX_DEFINED_AGE, compute_bcp_longevity, compute_bhrigu_chakra
 from vedic_astro.models import NakshatraPlacement, Planet, PlanetPosition, Sign
 
@@ -96,6 +98,29 @@ def test_planets_from_lagna_lists_occupants_of_the_activated_sign() -> None:
     # Year 5 = 5th house from Aries lagna = Leo, where Sun sits.
     assert year_5.sign_from_lagna == Sign.LEO
     assert year_5.planets_from_lagna == [Planet.SUN]
+
+
+@pytest.mark.parametrize("lagna,age,ruler,base,relative_house,target,natal_house", [
+    # The supplied BCP-CycleLords slides' examples 3 and 6. The bases are
+    # the occupied natal signs stated or implied by their house/lordships.
+    (Sign.SAGITTARIUS, 25, Planet.VENUS, Sign.CAPRICORN, 1, Sign.CAPRICORN, 2),
+    (Sign.SAGITTARIUS, 41, Planet.SUN, Sign.CAPRICORN, 5, Sign.TAURUS, 6),
+    (Sign.SAGITTARIUS, 50, Planet.MARS, Sign.VIRGO, 2, Sign.LIBRA, 11),
+    (Sign.TAURUS, 23, Planet.MERCURY, Sign.CANCER, 11, Sign.TAURUS, 1),
+    (Sign.TAURUS, 26, Planet.VENUS, Sign.GEMINI, 2, Sign.CANCER, 3),
+    (Sign.TAURUS, 27, Planet.VENUS, Sign.GEMINI, 3, Sign.LEO, 4),
+    (Sign.TAURUS, 29, Planet.VENUS, Sign.GEMINI, 5, Sign.LIBRA, 6),
+])
+def test_supplied_cycle_lord_examples_use_the_rulers_sign_as_lagna(
+    lagna, age, ruler, base, relative_house, target, natal_house
+) -> None:
+    planets = [p for p in _all_nine_planets() if p.planet != ruler]
+    planets.append(_planet(ruler, base))
+    row = compute_bhrigu_chakra(lagna, planets, max_age=age)[-1]
+    assert row.cycle_ruler == ruler
+    assert row.house_from_cycle_ruler == relative_house
+    assert row.sign_from_cycle_ruler == target
+    assert ((_SIGN_INDEX[target] - _SIGN_INDEX[lagna]) % 12) + 1 == natal_house
 
 
 def test_bcp_longevity_rule1_when_ascendant_is_occupied() -> None:

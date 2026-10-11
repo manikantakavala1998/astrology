@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -135,6 +136,21 @@ class PanchangaElement(BaseModel):
     index: int = Field(ge=1)
 
 
+class BirthHora(BaseModel):
+    """Planetary hora at birth; all presentation datetimes are birth-place local."""
+
+    lord: Planet
+    index: int = Field(ge=1, le=24)
+    phase: Literal["Day", "Night"]
+    start: datetime
+    end: datetime
+    duration_minutes: float = Field(gt=0)
+    sunrise: datetime
+    sunset: datetime
+    next_sunrise: datetime
+    sunrise_day_lord: Planet
+
+
 class PanchangaResult(BaseModel):
     tithi: PanchangaElement
     paksha: str
@@ -142,6 +158,7 @@ class PanchangaResult(BaseModel):
     nakshatra: PanchangaElement
     yoga: PanchangaElement
     karana: PanchangaElement
+    hora: BirthHora | None = None
 
 
 class DashaSubPeriod(BaseModel):
@@ -258,9 +275,10 @@ class BspRuleResult(BaseModel):
     """One numbered rule of Bhrigu Sarala Paddhati (BSP) - see bsp.py module
     docstring for the source (Abhishekha, "The Logic of Bhrighu Saral
     Paddhati", Saptarishis Astrology) and its precondition/interpretation
-    notes. `special_status` is whether this chart's `planet` qualifies for
-    the rule at all; `age` and the affected house/sign are only meaningful
-    when it does."""
+    notes. `special_status` records the separate research qualifier. Original
+    article rules use their stated running year without that extra gate;
+    affected house/sign are withheld only when the optional gated variant
+    is requested and no qualifier holds."""
 
     rule_number: int
     planet: Planet
@@ -333,20 +351,43 @@ class BnnKarakaReading(BaseModel):
     retrograde: bool
 
 
-class BnnSiblingCount(BaseModel):
-    """Sibling count via the Jupiter-as-self 'crossing' algorithm - Chart 1
-    of Bhrigu Nandi Nadi (R.G. Rao). See bhrigu_nandi_nadi.py module
-    docstring for the source's own acknowledged inconsistencies (a
-    conflicting worked example on whether a lone Ketu behind Jupiter counts,
-    and one chart that inverts the elder/younger convention) - not resolved
-    here, just flagged."""
+class BnnSisterIndicator(BaseModel):
+    """Positions of the two sister significators; neither is a person count."""
 
-    elder_planet: Planet | None
+    planet: Planet
+    sign: Sign
+    house_from_jupiter: int = Field(ge=1, le=12)
+    house_from_mars: int = Field(ge=1, le=12)
+    house_from_retrograde_context: int | None = Field(default=None, ge=1, le=12)
+
+
+class BnnSiblingCount(BaseModel):
+    """Chart 1 comparison and family significators, not a sibling prediction.
+
+    Counts of people remain null: the book's other worked charts do not
+    support treating one transit contact as one sibling universally.
+    Indicator counts/breakdowns count planets, never family members.
+    """
+
+    count_status: Literal["undetermined"] = "undetermined"
+    elder_count: None = None
+    younger_count: None = None
+    elder_planets: list[Planet]
     younger_planets: list[Planet]
-    elder_count: int
-    younger_count: int
+    elder_indicator_count: int
+    younger_indicator_count: int
     elder_gender_breakdown: dict[str, int]
     younger_gender_breakdown: dict[str, int]
+    sister_indicators: list[BnnSisterIndicator]
+    jupiter_sign: Sign
+    jupiter_retrograde: bool
+    retrograde_context_sign: Sign | None
+    notes: list[str]
+
+    @property
+    def elder_planet(self) -> Planet | None:
+        """Legacy first-indicator accessor. Use elder_planets for the full list."""
+        return self.elder_planets[0] if self.elder_planets else None
 
 
 class BnnMarriageTimingVariant(BaseModel):
@@ -356,42 +397,34 @@ class BnnMarriageTimingVariant(BaseModel):
 
 
 class BnnMarriageTiming(BaseModel):
-    """Marriage occurs (per both source texts) when transiting Jupiter
-    reaches the spouse-karaka's natal sign: Venus for a male native, Mars
-    for a female native. Since this app does not record the native's sex,
-    both variants are computed and returned - see bhrigu_nandi_nadi.py."""
+    """Approximate Jupiter/spouse-karaka contacts, not marriage predictions.
+
+    Both traditional variants are computed; sex is not recorded by the app.
+    """
 
     male_native: BnnMarriageTimingVariant
     female_native: BnnMarriageTimingVariant
 
 
 class BnnShortLifeIndication(BaseModel):
-    """PAGE 193-194 of Bhrigu Nandi Nadi (R.G. Rao): if Jupiter has no
-    planet in its adjacent (2nd/12th) or 7th sign, short life is indicated;
-    if Saturn is similarly bare, poverty/difficulties are indicated. Two
-    independent flags, not a strict prediction - see module docstring."""
+    """Historical isolation configurations, not lifespan or wealth forecasts."""
 
     jupiter_bare: bool
     saturn_bare: bool
 
 
 class BnnCareerSequence(BaseModel):
-    """Saturn's 'planets contacted in transit order' narrative device for
-    career-stage sequencing - the same structural primitive as the sibling-
-    crossing algorithm, applied to Saturn/profession instead of Jupiter/
-    siblings. See bhrigu_nandi_nadi.py module docstring for the source's own
-    imprecisely-specified worked example of the age arithmetic."""
+    """Saturn contacts across all other signs, with schematic first ages.
+
+    Half-year ages are preserved; contacts are not counts of jobs.
+    """
 
     planets_in_order: list[Planet]
-    ages: list[int]
+    ages: list[float]
 
 
 class BnnResult(BaseModel):
-    """Bhrigu Nandi Nadi - see bhrigu_nandi_nadi.py module docstring for the
-    two sources (R.G. Rao's "Bhrigu Nandi Nadi", N. Srinivasan Shastry's
-    "Brighu Naadi Sangraha") and what is deliberately NOT implemented (the
-    hundreds of multi-condition combination-dictionary entries, which both
-    sources' own worked examples show rarely fire on an exact match)."""
+    """BNN chart worksheets; scope and sources: docs/bhrigu-nandi-nadi.md."""
 
     jupiter_as_lagna_houses: dict[int, Sign]
     karaka_readings: list[BnnKarakaReading]
@@ -440,11 +473,13 @@ class ShaniDoshaResult(BaseModel):
 
 
 class AshtakavargaSet(BaseModel):
-    """Parasara Ashtakavarga only - see ashtakavarga.py. The Ascendant/
-    Lagna's own individual BAV chart is intentionally not included here (no
-    verified contribution table for it yet)."""
+    """Seven planetary BAVs plus a separate 49-point Lagna BAV.
+
+    SAV and Bhava Ashtakavarga use only the seven planets (337 points).
+    """
 
     bav_by_planet: dict[Planet, dict[Sign, int]]
+    lagna_bav: dict[Sign, int]
     sav: dict[Sign, int]
     bhava_ashtakavarga: dict[int, int]
 
@@ -611,15 +646,17 @@ class ShadbalaResult(BaseModel):
 
 
 class VimshopakaBalaResult(BaseModel):
-    """See vimshopaka_bala.py. Shadvarga (6 charts) and Saptavarga (7
-    charts) only - Dashavarga/Shodashavarga need divisional charts this
-    app doesn't have built (D16, D60, and more - see the plan)."""
+    """Four Vimshopaka schemes, each scored out of twenty."""
 
     planet: Planet
     shadvarga_score: float = Field(ge=0, le=20)
     saptavarga_score: float = Field(ge=0, le=20)
     shadvarga_band: str
     saptavarga_band: str
+    dashavarga_score: float = Field(ge=0, le=20)
+    shodashavarga_score: float = Field(ge=0, le=20)
+    dashavarga_band: str
+    shodashavarga_band: str
 
 
 class BhavaBalaResult(BaseModel):

@@ -1,0 +1,70 @@
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+
+(async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto('http://127.0.0.1:8765/');
+    assert.equal(await page.locator('#birth_state option').count(), 38);
+    assert.notEqual(await page.locator('#birth_state').evaluate(node => getComputedStyle(node).backgroundImage), 'none');
+    await page.locator('#name').fill('Manikanta Kavala');
+    await page.locator('#birth_date').fill('04/09/1998');
+    await page.locator('#birth_hour').selectOption('12');
+    await page.locator('#birth_minute').selectOption('3');
+    await page.locator('#birth_meridiem').selectOption('AM');
+    await page.locator('#birth_state').selectOption('Tamil Nadu');
+    assert.equal(await page.locator('#place_name').evaluate(node => node === document.activeElement), true);
+    await page.locator('#place_name').fill('rjy');
+    await page.getByRole('button', { name: 'Generate chart', exact: true }).click();
+    await page.locator('.birth-report .error').waitFor();
+    assert.match(await page.locator('.birth-report .error').innerText(), /No place found/);
+    assert.equal(await page.locator('#birth_state').inputValue(), 'Tamil Nadu');
+    assert.equal(await page.locator('#place_name').inputValue(), 'rjy');
+    await page.locator('#birth_state').selectOption('Andhra Pradesh');
+    const posted = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/');
+    await page.getByRole('button', { name: 'Generate chart', exact: true }).click();
+    const response = await posted;
+    assert.equal(response.status(), 200);
+    const html = await response.text();
+    const state = JSON.parse(html.match(/<script id="astro-state" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+    assert.equal(state.birth_data.latitude, 17.00517);
+    await page.locator('.rasi-grid').first().waitFor();
+    await page.getByRole('button', { name: 'Edit birth details', exact: true }).click();
+    assert.equal(await page.locator('#birth_state').inputValue(), 'Andhra Pradesh');
+    assert.equal(await page.locator('#place_name').inputValue(), 'rjy');
+    await page.locator('#place_name').fill('Rajahmundry');
+    await page.locator('#place_name').focus();
+    await page.screenshot({ path: path.resolve('test-results/birth-state-city-implemented.png'), fullPage: true });
+    await page.locator('#include_match').check();
+    await page.locator('#b_birth_state').selectOption('other');
+    assert.equal(await page.locator('#b_place_name').getAttribute('placeholder'), 'Enter city, region and country');
+    await page.locator('#b_place_name').fill('London, England');
+    await page.locator('#b_birth_state').selectOption('Tamil Nadu');
+    assert.equal(await page.locator('#b_place_name').inputValue(), 'London, England');
+    await page.locator('#b_place_name').fill('Chennai');
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      const stateBox = await page.locator('#birth_state').boundingBox();
+      const cityBox = await page.locator('#place_name').boundingBox();
+      assert.ok(cityBox.y > stateBox.y + stateBox.height);
+      assert.ok(await page.locator('#b_birth_state').isVisible());
+    }
+    await page.locator('#include_match').uncheck();
+    await page.locator('#birth_state').selectOption('');
+    await page.locator('#place_name').fill('');
+    await page.getByText('Advanced settings', { exact: true }).click();
+    await page.locator('#manual_latitude').fill('17.00517');
+    await page.locator('#manual_longitude').fill('81.77784');
+    await page.locator('#manual_utc_offset_hours').fill('5.5');
+    assert.ok(await page.locator('.birth-report form').first().evaluate(form => form.checkValidity()));
+    await page.getByRole('button', { name: 'Generate chart', exact: true }).click();
+    await page.locator('.rasi-grid').first().waitFor();
+    assert.deepEqual(errors, []);
+    console.log('PASS: state-filtered lookup, edit persistence, state focus, compatibility, outside-India option, manual coordinates and 320/390 px layout');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

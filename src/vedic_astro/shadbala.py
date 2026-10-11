@@ -55,6 +55,7 @@ from vedic_astro.models import (
     SthanaBalaBreakdown,
 )
 from vedic_astro.planetary_relations import panchadha_relation
+from vedic_astro.hora import HORA_ORDER, WEEKDAY_LORDS, hora_interval
 from vedic_astro.rashi_bhava import RASHI_LORD, whole_sign_house
 
 _CLASSICAL_PLANETS: list[Planet] = [
@@ -118,14 +119,8 @@ _BENEFIC_PAKSHA: set[Planet] = {Planet.JUPITER, Planet.VENUS, Planet.MERCURY, Pl
 _TRIBHAGA_DAY_LORDS = [Planet.MERCURY, Planet.SUN, Planet.SATURN]
 _TRIBHAGA_NIGHT_LORDS = [Planet.MOON, Planet.VENUS, Planet.MARS]
 
-_DINA_LORD_BY_WEEKDAY: dict[int, Planet] = {
-    0: Planet.MOON, 1: Planet.MARS, 2: Planet.MERCURY, 3: Planet.JUPITER,
-    4: Planet.VENUS, 5: Planet.SATURN, 6: Planet.SUN,
-}
-_CHALDEAN_ORDER: list[Planet] = [
-    Planet.SATURN, Planet.JUPITER, Planet.MARS, Planet.SUN,
-    Planet.VENUS, Planet.MERCURY, Planet.MOON,
-]
+_DINA_LORD_BY_WEEKDAY = WEEKDAY_LORDS
+_CHALDEAN_ORDER = HORA_ORDER
 
 _DRIK_BENEFIC: set[Planet] = {Planet.JUPITER, Planet.VENUS, Planet.MERCURY}
 _DRIK_MALEFIC: set[Planet] = {Planet.SUN, Planet.MARS, Planet.SATURN}
@@ -311,20 +306,8 @@ def hora_bala(
     next_sunrise: datetime,
     sunrise_local_weekday: int,
 ) -> float:
-    day_lord = _DINA_LORD_BY_WEEKDAY[sunrise_local_weekday]
-    start_index = _CHALDEAN_ORDER.index(day_lord)
-    lords = [_CHALDEAN_ORDER[(start_index + i) % 7] for i in range(24)]
-
-    if sunrise <= birth_utc < sunset:
-        day_length = (sunset - sunrise).total_seconds()
-        elapsed = (birth_utc - sunrise).total_seconds()
-        hora_index = min(11, int(elapsed / (day_length / 12.0))) if day_length > 0 else 0
-    else:
-        night_length = (next_sunrise - sunset).total_seconds()
-        elapsed = (birth_utc - sunset).total_seconds()
-        hora_index = 12 + (min(11, int(elapsed / (night_length / 12.0))) if night_length > 0 else 0)
-
-    return 60.0 if lords[hora_index] == planet else 0.0
+    interval = hora_interval(birth_utc, sunrise, sunset, next_sunrise, sunrise_local_weekday)
+    return 60.0 if interval.lord == planet else 0.0
 
 
 def ayana_bala(planet: Planet, declination: float, obliquity: float) -> float:

@@ -1,80 +1,27 @@
-"""Bhrigu Nandi Nadi (BNN) - a no-Lagna, Jupiter-as-reference-point Nadi
-system, read from two source texts:
+"""Bhrigu Nandi Nadi chart worksheets, based on R.G. Rao's worked charts.
 
-- "Bhrigu Nandi Nadi" by R.G. Rao (~500 worked charts).
-- "Brighu Naadi Sangraha" by N. Srinivasan Shastry (a companion text in the
-  same tradition).
+Source audit and conventions are recorded in docs/bhrigu-nandi-nadi.md.
+The introductory karaka procedure uses sign, dispositor, co-sign planets,
+adjacent/opposite signs, exchanges, dignity and motion. These are chart
+facts; converting them into family events needs additional interpretation.
 
-Both texts were OCR-extracted and read in full (not summarized from memory)
-before this module was written. Both state, in their own introductions,
-the same core reading method for any karaka (significator) planet: the sign
-it occupies, its dispositor (sign lord), planets conjunct it, planets in
-the signs adjacent to it (2nd/next and 12th/previous) and in the 7th from
-it, sign-exchange (parivartana) with its dispositor, natural friendship
-with its dispositor, its dignity, and its retrograde status. That general
-procedure is implemented once here (`_read_karaka`) and applied to all nine
-grahas.
+Chart 1, printed page 11 of the scanned edition, uses Jupiter as self,
+Moon in its previous sign as an elder sister and forward contacts as younger
+siblings. That example counts Rahu as a brother. Chart 44 excludes Ketu
+from an elder reading, while Chart 431 associates it with the youngest son.
+Chart 222 instead reads elder siblings from Mars and its following signs.
+Consequently the Chart 1 comparison below counts planetary indicators only.
+It cannot establish an exact sibling count or birth order for a new chart.
 
-KARAKAS - stated in both introductions, applied throughout both books:
-Sun=father, Moon=mother, Mars=siblings (general) / husband (female native),
-Mercury=education, Jupiter=children (per the karaka table) *and* the
-native's own self (for the sibling-count and transit-timing algorithms -
-the source texts use Jupiter both ways without reconciling them), Venus=
-wife (male native) / wealth, Saturn=profession/karma, Rahu&Ketu=family
-circle, travel, obstruction. This app does not record the native's sex, so
-wherever a rule depends on it (marriage timing), both variants are
-returned rather than guessed.
+Retrograde Jupiter's previous-sign influence is illustrated in Chart 371.
+We expose that additional context without moving the actual natal planet,
+reversing every transit or inventing a sibling-count equation.
 
-TRANSIT-ROUND TIMING: both texts use a simplified, non-ephemeris model -
-Jupiter moves 1 sign per year, completing a 12-year round; the book itself
-repeatedly shows the arithmetic "12 x rounds_completed + signs_forward =
-age" (e.g. R.G. Rao PAGE 274: "Jupiter completes three rounds and contacts
-Rahu after four years (12 x 3 = 36 and 36 + 4 = 40)"). This is implemented
-directly as `_round_ages()`. Saturn gets a parallel model at 30 years per
-round (2.5 years/sign) - both texts state this round length, though R.G.
-Rao's own single worked example of the arithmetic ("30 + 4 x 2 + 2 = 40",
-PAGE 231) does not cleanly reduce to a 2.5-years/sign formula; that specific
-example is not reproduced here, only the stated round length.
-
-SIBLING COUNT: R.G. Rao Chart 1 (PAGE 6) gives the clearest worked example
-- "Jupiter represents the native"; a planet in the sign immediately before
-Jupiter (its 12th) is an elder sibling; every planet Jupiter's forward
-transit crosses before returning to its own sign is a younger sibling, in
-crossing order; Rahu/Ketu are excluded from the count (explicit in Chart
-44, PAGE 39: "there are no planets behind Jupiter except Ketu... he was the
-eldest born"); gender is Moon/Venus=sister, Sun/Mars/Saturn/Mercury=brother
-(per Chart 1 and Chart 8). NOTE: the source is not fully self-consistent -
-Chart 431 (PAGE 279) reads a lone Ketu behind Jupiter as making the native
-the *youngest*, contradicting Chart 44's exclusion rule, and Chart 222
-(PAGE 150) derives seniority from planets' position relative to Mars (the
-siblings-karaka) rather than Jupiter, with the elder/younger sense
-reversed. This module implements the Chart 1 version and does not attempt
-to reconcile those contradictions.
-
-SHORT-LIFE / POVERTY INDICATION: R.G. Rao PAGE 193-194, stated as a direct
-general conclusion (not one chart's narrative): "when Jupiter has no planet
-either in the adjacent houses or in the 7th house, the native of such a
-horoscope will be short-lived. If Saturn is similarly disposed, the native
-of such a horoscope will experience poverty and difficulties in life."
-
-CAREER SEQUENCE: both texts read Saturn's transit contacts (in forward
-order from its natal sign) as the sequence of career stages/jobs, the same
-structural device as the sibling-crossing algorithm, applied to Saturn
-instead of Jupiter. Nodes are excluded here too, for consistency with the
-one place (siblings) where the source is explicit about node exclusion.
-
-NOT IMPLEMENTED: the hundreds of multi-condition combination-dictionary
-entries scattered through both books (e.g. "Jupiter in Cancer having Venus
-with him and Mars in the 7th house to Jupiter with Moon in the 4th house to
-Jupiter -> first wife will not have children", R.G. Rao PAGE 37). Both
-texts' own worked material shows these almost never fire on an exact match
-in practice and would need a scoring/partial-match approach to be
-meaningful - building them as strict rule matches risks confidently wrong
-output, so they are left out rather than guessed at. Also not implemented:
-the birth-environment lookup tables (temple type, house door-facing
-direction keyed to Rahu/Ketu/Sun sign) from Brighu Naadi Sangraha, and any
-chart-specific narrative (curse/remedy stories, physiognomic name
-derivation) that both texts themselves flag as non-general.
+Timing remains a schematic worksheet: Jupiter uses 12 years per round,
+Saturn 30, with inclusive house ordinals as in the existing convention.
+Saturn retains half years. These ages are neither ephemeris transit dates
+nor confirmed marriage or job events. The historical isolation conditions
+are likewise configuration flags rather than lifespan/wealth forecasts.
 """
 
 from __future__ import annotations
@@ -88,6 +35,7 @@ from vedic_astro.models import (
     BnnResult,
     BnnShortLifeIndication,
     BnnSiblingCount,
+    BnnSisterIndicator,
     Planet,
     PlanetPosition,
     Sign,
@@ -98,7 +46,6 @@ from vedic_astro.rashi_bhava import RASHI_LORD
 
 JUPITER_ROUND_LENGTH = 12
 SATURN_ROUND_LENGTH = 30
-_YEARS_PER_SATURN_SIGN = SATURN_ROUND_LENGTH / 12
 
 _KARAKA_SIGNIFIES: dict[Planet, str] = {
     Planet.SUN: "Father",
@@ -113,20 +60,10 @@ _KARAKA_SIGNIFIES: dict[Planet, str] = {
     Planet.KETU: "Renunciation, pilgrimage (via Jupiter's transit over its sign)",
 }
 
-# Sun/Mars/Saturn/Mercury=brother, Moon/Venus=sister - per R.G. Rao Chart 1
-# (PAGE 6) and Chart 8 (PAGE 18-19). Chart 1 itself counts Rahu among the
-# "five younger brothers" (crossing order: Mars, Rahu, Sun, Saturn,
-# Mercury), so Rahu is classified as a brother here too, on that one
-# example's authority - Ketu's gender is not demonstrated anywhere in
-# either source and is deliberately left unclassified (counted in
-# younger_count/elder_count but contributing to neither gender breakdown).
+# These labels describe Chart 1's indicators, not universal sibling genders.
 _BROTHER_PLANETS = {Planet.SUN, Planet.MARS, Planet.SATURN, Planet.MERCURY, Planet.RAHU}
 _SISTER_PLANETS = {Planet.MOON, Planet.VENUS}
-# Only Ketu is excluded from the elder-sibling test itself (R.G. Rao Chart
-# 44, PAGE 39: a lone Ketu behind Jupiter still leaves the native "the
-# eldest born") - nodes are NOT excluded from the younger-sibling crossing
-# count, since Chart 1 explicitly counts Rahu there.
-_ELDER_TEST_EXCLUDED = {Planet.KETU}
+_ELDER_TEST_EXCLUDED = {Planet.KETU}  # Chart 44 convention; Chart 431 differs.
 _CLASSICAL_SEVEN = {
     Planet.SUN, Planet.MOON, Planet.MARS, Planet.MERCURY,
     Planet.JUPITER, Planet.VENUS, Planet.SATURN,
@@ -146,35 +83,41 @@ def _house_offset(base_sign: Sign, target_sign: Sign) -> int:
     return ((target_index - base_index) % 12) + 1
 
 
-def _round_ages(signs_forward: int, round_length: int, max_age: int) -> list[int]:
-    """The book's own repeated arithmetic: age = round_length * rounds_completed
-    + years_into_current_round, where years_into_current_round is
-    signs_forward (1-12) scaled to the round's own year-per-sign rate."""
-    years_per_sign = round_length / 12
-    first_age = round(signs_forward * years_per_sign)
-    return [age for age in range(first_age, max_age + 1, round_length) if age >= 1]
+def _round_ages(signs_forward: int, round_length: int, max_age: int) -> list[float]:
+    """Schematic inclusive-house timing, preserving Saturn's half years."""
+    first_age = signs_forward * round_length / 12
+    if first_age > max_age:
+        return []
+    rounds = int((max_age - first_age) // round_length)
+    return [first_age + cycle * round_length for cycle in range(rounds + 1)]
+
+
+def _group_planets(planets: list[PlanetPosition]) -> dict[Sign, list[Planet]]:
+    """Stable forward order, including degree order within a shared sign."""
+    grouped: dict[Sign, list[Planet]] = {sign: [] for sign in SIGNS_IN_ORDER}
+    tie_order = {planet: index for index, planet in enumerate(Planet)}
+    for pos in sorted(planets, key=lambda p: (p.longitude, tie_order[p.planet])):
+        grouped[pos.sign].append(pos.planet)
+    return grouped
 
 
 def _planets_crossed_forward(
-    base_sign: Sign, planets_by_sign: dict[Sign, list[Planet]], exclude: set[Planet]
+    base_sign: Sign,
+    planets_by_sign: dict[Sign, list[Planet]],
+    exclude: set[Planet],
+    *,
+    include_previous_sign: bool = False,
 ) -> list[Planet]:
-    """Planets encountered going forward sign-by-sign from `base_sign`
-    (exclusive), stopping short of the 12th/previous sign - the shared
-    'transit-contact sequence' primitive used for both the sibling count
-    (from Jupiter) and the career sequence (from Saturn).
+    """Forward contacts outside the natal sign.
 
-    The 12th/previous sign is deliberately excluded here: R.G. Rao's Chart 1
-    (PAGE 6) places the Moon there and reads it as the *elder* sibling, and
-    explicitly does not include it among the five/six planets "crossed" for
-    younger siblings - i.e. the 12th sign is reserved for the separate
-    elder-sibling test (see compute_bnn_sibling_count), not swept here.
+    Only the Chart 1 sibling comparison reserves the previous sign.
+    Saturn's career worksheet must include that sign before completing
+    a round; applying the sibling exception there dropped valid contacts.
     """
     crossed: list[Planet] = []
-    for houses_ahead in range(2, 12):
+    for houses_ahead in range(2, 13 if include_previous_sign else 12):
         sign = _sign_at_offset(base_sign, houses_ahead)
-        for planet in planets_by_sign[sign]:
-            if planet not in exclude:
-                crossed.append(planet)
+        crossed.extend(planet for planet in planets_by_sign[sign] if planet not in exclude)
     return crossed
 
 
@@ -215,9 +158,7 @@ def _read_karaka(
 
 
 def compute_bnn_karaka_readings(planets: list[PlanetPosition]) -> list[BnnKarakaReading]:
-    planets_by_sign: dict[Sign, list[Planet]] = {sign: [] for sign in SIGNS_IN_ORDER}
-    for p in planets:
-        planets_by_sign[p.sign].append(p.planet)
+    planets_by_sign = _group_planets(planets)
     dispositor_sign_of: dict[Planet, Sign] = {p.planet: p.sign for p in planets}
 
     return [
@@ -230,40 +171,68 @@ def compute_bnn_karaka_readings(planets: list[PlanetPosition]) -> list[BnnKaraka
 
 
 def compute_bnn_sibling_count(planets: list[PlanetPosition]) -> BnnSiblingCount:
-    """See module docstring for the source (R.G. Rao Chart 1) and its own
-    acknowledged inconsistencies elsewhere in the book."""
-    planets_by_sign: dict[Sign, list[Planet]] = {sign: [] for sign in SIGNS_IN_ORDER}
-    for p in planets:
-        planets_by_sign[p.sign].append(p.planet)
-
+    """Expose the worked-example comparison, with no inferred family count."""
+    planets_by_sign = _group_planets(planets)
     jupiter = next(p for p in planets if p.planet == Planet.JUPITER)
+    mars = next(p for p in planets if p.planet == Planet.MARS)
     previous_sign = _sign_at_offset(jupiter.sign, 12)
-    elder_candidates = [p for p in planets_by_sign[previous_sign] if p not in _ELDER_TEST_EXCLUDED]
-    elder_planet = elder_candidates[0] if elder_candidates else None
-
+    # Keep EVERY indicator, not just the first occupant of the previous sign.
+    elder_planets = [p for p in planets_by_sign[previous_sign] if p not in _ELDER_TEST_EXCLUDED]
     younger_planets = _planets_crossed_forward(jupiter.sign, planets_by_sign, exclude={Planet.JUPITER})
+    retrograde_context = previous_sign if jupiter.retrograde else None
 
     def _gender_breakdown(planet_list: list[Planet]) -> dict[str, int]:
         return {
             "brothers": sum(1 for p in planet_list if p in _BROTHER_PLANETS),
             "sisters": sum(1 for p in planet_list if p in _SISTER_PLANETS),
+            "unclassified": sum(1 for p in planet_list if p not in _BROTHER_PLANETS | _SISTER_PLANETS),
         }
 
-    elder_list = [elder_planet] if elder_planet else []
+    sister_indicators = [
+        BnnSisterIndicator(
+            planet=planet,
+            sign=pos.sign,
+            house_from_jupiter=_house_offset(jupiter.sign, pos.sign),
+            house_from_mars=_house_offset(mars.sign, pos.sign),
+            house_from_retrograde_context=(
+                _house_offset(retrograde_context, pos.sign) if retrograde_context else None
+            ),
+        )
+        for planet in (Planet.MOON, Planet.VENUS)
+        for pos in planets if pos.planet == planet
+    ]
+    notes = [
+        "Exact sibling count and elder/younger birth order are not determined by this worksheet.",
+        "Moon and Venus are sister significators; two significators do not prove two sisters.",
+        "Chart 1 is a worked-example comparison, not a universal one-planet-per-sibling rule.",
+        "Chart 222 uses Mars and following signs for elder siblings; Charts 44 and 431 differ on Ketu.",
+    ]
+    if jupiter.retrograde:
+        notes.append(
+            f"Jupiter is retrograde in {jupiter.sign.value}. Chart 371 also considers its "
+            f"previous-sign influence ({previous_sign.value}); this does not establish sibling birth order."
+        )
     return BnnSiblingCount(
-        elder_planet=elder_planet,
+        elder_planets=elder_planets,
         younger_planets=younger_planets,
-        elder_count=len(elder_list),
-        younger_count=len(younger_planets),
-        elder_gender_breakdown=_gender_breakdown(elder_list),
+        elder_indicator_count=len(elder_planets),
+        younger_indicator_count=len(younger_planets),
+        elder_gender_breakdown=_gender_breakdown(elder_planets),
         younger_gender_breakdown=_gender_breakdown(younger_planets),
+        sister_indicators=sister_indicators,
+        jupiter_sign=jupiter.sign,
+        jupiter_retrograde=jupiter.retrograde,
+        retrograde_context_sign=retrograde_context,
+        notes=notes,
     )
 
 
 def compute_bnn_marriage_timing(planets: list[PlanetPosition], max_age: int = 100) -> BnnMarriageTiming:
-    """Marriage occurs when transiting Jupiter reaches the spouse-karaka's
-    natal sign - Venus for a male native, Mars for a female native (both
-    texts). See module docstring for why both variants are returned."""
+    """Schematic Jupiter/spouse-karaka contacts for both traditional variants.
+
+    A contact alone does not predict marriage. Actual transits and other
+    conditions are not evaluated by this round worksheet.
+    """
     jupiter = next(p for p in planets if p.planet == Planet.JUPITER)
     venus = next(p for p in planets if p.planet == Planet.VENUS)
     mars = next(p for p in planets if p.planet == Planet.MARS)
@@ -273,7 +242,7 @@ def compute_bnn_marriage_timing(planets: list[PlanetPosition], max_age: int = 10
         return BnnMarriageTimingVariant(
             spouse_karaka=spouse_karaka,
             spouse_karaka_sign=spouse_sign,
-            ages=_round_ages(signs_forward, JUPITER_ROUND_LENGTH, max_age),
+            ages=[int(age) for age in _round_ages(signs_forward, JUPITER_ROUND_LENGTH, max_age)],
         )
 
     return BnnMarriageTiming(
@@ -283,10 +252,8 @@ def compute_bnn_marriage_timing(planets: list[PlanetPosition], max_age: int = 10
 
 
 def compute_bnn_short_life_indication(planets: list[PlanetPosition]) -> BnnShortLifeIndication:
-    """See module docstring - R.G. Rao PAGE 193-194."""
-    planets_by_sign: dict[Sign, list[Planet]] = {sign: [] for sign in SIGNS_IN_ORDER}
-    for p in planets:
-        planets_by_sign[p.sign].append(p.planet)
+    """Historical isolation conditions; no lifespan/wealth inference."""
+    planets_by_sign = _group_planets(planets)
 
     def _is_bare(reference: Planet) -> bool:
         pos = next(p for p in planets if p.planet == reference)
@@ -304,21 +271,24 @@ def compute_bnn_short_life_indication(planets: list[PlanetPosition]) -> BnnShort
 def compute_bnn_career_sequence(planets: list[PlanetPosition], max_age: int = 100) -> BnnCareerSequence:
     """See module docstring - Saturn's transit-contact order, timed via
     Saturn's own round arithmetic (30 years/round, 2.5 years/sign)."""
-    planets_by_sign: dict[Sign, list[Planet]] = {sign: [] for sign in SIGNS_IN_ORDER}
-    for p in planets:
-        planets_by_sign[p.sign].append(p.planet)
+    planets_by_sign = _group_planets(planets)
 
     saturn = next(p for p in planets if p.planet == Planet.SATURN)
-    crossed = _planets_crossed_forward(saturn.sign, planets_by_sign, exclude={Planet.SATURN})
+    crossed = _planets_crossed_forward(
+        saturn.sign, planets_by_sign, exclude={Planet.SATURN}, include_previous_sign=True,
+    )
 
-    ages: list[int] = []
+    included: list[Planet] = []
+    ages: list[float] = []
     for planet in crossed:
         pos = next(p for p in planets if p.planet == planet)
         signs_forward = _house_offset(saturn.sign, pos.sign)
         first_age_ages = _round_ages(signs_forward, SATURN_ROUND_LENGTH, max_age)
-        ages.append(first_age_ages[0] if first_age_ages else max_age)
+        if first_age_ages:
+            included.append(planet)
+            ages.append(first_age_ages[0])
 
-    return BnnCareerSequence(planets_in_order=crossed, ages=ages)
+    return BnnCareerSequence(planets_in_order=included, ages=ages)
 
 
 def compute_bhrigu_nandi_nadi(planets: list[PlanetPosition]) -> BnnResult:

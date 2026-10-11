@@ -1,0 +1,21 @@
+      <div class="tab-panel" id="panel-brihat-jataka">
+        <div class="panel">
+          <h2 class="section-title">&#128218; Varahamihira · Brihat Jataka</h2>
+          <p>Planetary strengths, predictions and dasha calculations based on your birth details.</p>
+          {% if brihat_report %}
+          <h3>Planetary strengths</h3>
+          <table><thead><tr><th>Planet</th><th>Sthana</th><th>Dig</th><th>Chesta</th><th>Kala</th></tr></thead><tbody>
+          {% for r in brihat_report.strengths %}<tr><td>{{ r.planet }}</td><td>{{ r.sthana | join(', ') or 'No listed support' }}</td><td>{{ 'Supported' if r.dig else 'No' }}</td><td>{{ r.chesta }}</td><td>{{ 'Supported' if r.kala else 'No' }}</td></tr>{% endfor %}
+          </tbody></table>
+          <h3>Predictions · chart-based readings</h3>
+          <p class="hint">{{ brihat_report.predictions.scope }}</p>
+          {% for reading in brihat_report.predictions.readings %}
+          <article><h4>{{ reading.title }}</h4><p>{{ reading.plain_summary }}</p><details><summary>Your calculation</summary><ul>{% for evidence in reading.evidence if not evidence.startswith('Configuration rule:') %}<li>{{ evidence }}</li>{% endfor %}</ul><p>Rule applied: {{ reading.rule }}</p></details></article>
+          {% endfor %}
+          <h3>Naisargika dasha · natural ages</h3>
+          <table><thead><tr><th>Lord</th><th>Savana years</th><th>Start</th><th>End</th></tr></thead><tbody>
+          {% for r in brihat_report.natural_dasha %}<tr><td>{{ r.lord }}</td><td>{{ r.years }}</td><td>{{ r.start[:10] }}</td><td>{{ r.end[:10] }}</td></tr>{% endfor %}
+          </tbody></table>
+          {% endif %}
+        </div>
+      </div>
